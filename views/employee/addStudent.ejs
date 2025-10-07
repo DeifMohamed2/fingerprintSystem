@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<%- include("./partials/head.ejs") %>
+
+<style>
+  /* Professional White & Black Design */
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #000;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .card {
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+  }
+
+  .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+    color: #000;
+    font-weight: 600;
+  }
+
+  .btn-primary {
+    background-color: #000;
+    border-color: #000;
+    color: #fff;
+  }
+
+  .btn-primary:hover {
+    background-color: #333;
+    border-color: #333;
+  }
+
+  .btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: #fff;
+  }
+
+  .btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+  }
+
+  .form-control, .form-select {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+
+  .form-control:focus, .form-select:focus {
+    border-color: #000;
+    box-shadow: 0 0 0 0.2rem rgba(0, 0, 0, 0.25);
+  }
+
+  .table {
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .table th {
+    background-color: #000;
+    color: #fff;
+    font-weight: 600;
+    border: none;
+    padding: 15px 8px;
+    text-align: center;
+    font-size: 0.9rem;
+    letter-spacing: 0.5px;
+  }
+
+  .table td {
+    color: #333;
+    border-bottom: 1px solid #e8e9ea;
+    padding: 12px 8px;
+    vertical-align: middle;
+    transition: background-color 0.2s ease;
+  }
+
+  .table tbody tr:hover {
+    background-color: #f8f9fa;
+  }
+
+  .table-responsive {
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+  }
+
+  .toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+  }
+
+  .toast {
+    background: #28a745;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .toast.error {
+    background: #dc3545;
+  }
+
+  .group-card {
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    background: white;
+  }
+
+  .group-card:hover {
+    border-color: #000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+  }
+
+  .group-card.selected {
+    border-color: #000;
+    background-color: #f8f9fa;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .group-card.selected {
+    border-color: #007bff;
+    background-color: #e3f2fd;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.25);
+  }
+
+  .group-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .group-details {
+    flex: 1;
+  }
+
+  .group-details h6 {
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+    color: #000;
+  }
+
+  .group-details p {
+    margin-bottom: 0.25rem;
+    font-size: 0.75rem;
+    color: #666;
+  }
+
+  .group-details small {
+    font-size: 0.7rem;
+    color: #888;
+  }
+
+  .group-capacity {
+    text-align: center;
+    min-width: 60px;
+  }
+
+  .capacity-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 600;
+  }
+
+  .capacity-full {
+    background-color: #dc3545;
+    color: white;
+  }
+
+  .capacity-available {
+    background-color: #28a745;
+    color: white;
+  }
+
+  .capacity-warning {
+    background-color: #ffc107;
+    color: #000;
+  }
+
+  .monthly-payment-status {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .payment-paid {
+    background-color: #d4edda;
+    color: #155724;
+  }
+
+  .payment-unpaid {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+</style>
+
+<body class="g-sidenav-show rtl bg-gray-100">
+  <%- include("./partials/aside.ejs") %>
+  
+  <main class="main-content position-relative max-height-vh-100 h-100 border-radius-lg">
+    <%- include("./partials/nav.ejs") %>
+    
+    <div class="container-fluid py-4">
+      <div class="row">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header">
+              <h5 class="mb-0">إضافة طالب جديد</h5>
+            </div>
+            <div class="card-body">
+              <form id="addStudentForm">
+                <!-- Student Information -->
+                <div class="row mb-4">
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold">اسم الطالب</label>
+                    <input type="text" class="form-control" name="studentName" id="studentName" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold">رقم هاتف الطالب</label>
+                    <input type="text" class="form-control" name="studentPhoneNumber" id="studentPhoneNumber" required>
+                  </div>
+                </div>
+
+                <div class="row mb-4">
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold">رقم هاتف ولي الأمر</label>
+                    <input type="text" class="form-control" name="studentParentPhone" id="studentParentPhone" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold">اسم المدرسة</label>
+                    <input type="text" class="form-control" name="schoolName" id="schoolName" value="غير محدد">
+                  </div>
+                </div>
+
+                <div class="row mb-4">
+                  <div class="col-md-12">
+                    <label class="form-label fw-bold">اختيار جهاز البصمة</label>
+                    <select class="form-select" name="deviceId" id="deviceId">
+                      <option value="">اختر جهاز البصمة (اختياري)</option>
+                      <% if (availableDevices && availableDevices.length > 0) { %>
+                        <% availableDevices.forEach(device => { %>
+                          <option value="<%= String(device.id) %>" 
+                                  data-device-ip="<%= device.ip %>" 
+                                  data-device-port="<%= device.port %>"
+                                  <%= device.enabled ? '' : 'disabled' %>>
+                            <%= device.name %> (<%= device.ip %>:<%= device.port %>) 
+                            <%= device.enabled ? '- متاح' : '- غير متاح' %>
+                          </option>
+                        <% }) %>
+                      <% } else { %>
+                        <option value="" disabled>لا توجد أجهزة متاحة</option>
+                      <% } %>
+                    </select>
+                    <small class="form-text text-muted">
+                      اختياري: اختر جهاز البصمة لإضافة الطالب إليه. إذا لم تختر جهازاً، سيتم استخدام الجهاز الافتراضي.
+                    </small>
+                  </div>
+                </div>
+
+                <!-- Group Selection -->
+                <div class="mb-4">
+                  <label class="form-label fw-bold">اختيار المجموعات</label>
+                  <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>ملاحظة:</strong> يمكن اختيار مجموعة واحدة أو أكثر. يجب اختيار مجموعة واحدة على الأقل.
+                  </div>
+                  
+                  <div class="row">
+                    <% allGroups.forEach(group => { %>
+                      <div class="col-md-3 mb-2">
+                        <div class="group-card" data-group-id="<%= group._id %>">
+                          <div class="group-info">
+                            <div class="group-details">
+                              <h6><%= group.groupName %></h6>
+                              <p><%= group.groupDescription && group.groupDescription.trim() !== '' ? group.groupDescription : 'لا يوجد وصف' %></p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    <% }) %>
+                  </div>
+                  
+                  <input type="hidden" name="groups" id="groups" required>
+                </div>
+
+
+                <!-- Submit Button -->
+                <div class="row">
+                  <div class="col-12 text-center">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                      <i class="material-symbols-rounded me-2">person_add</i>إضافة الطالب
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Students Table -->
+      <div class="row mt-4">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header">
+              <div class="row align-items-center">
+                <div class="col-md-6">
+                  <h5 class="mb-0">قائمة الطلاب</h5>
+                </div>
+                <div class="col-md-6">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <input type="text" class="form-control form-control-sm" id="searchStudents" placeholder="البحث بالاسم، الكود، أو رقم الهاتف...">
+                    </div>
+                    <div class="col-md-6">
+                      <select class="form-select form-select-sm" id="filterByGroup">
+                        <option value="">جميع المجموعات</option>
+                        <% allGroups.forEach(group => { %>
+                          <option value="<%= group._id %>"><%= group.groupName %></option>
+                        <% }) %>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-hover mb-0" id="studentsTable">
+                  <thead>
+                    <tr>
+                      <th class="text-center">اسم الطالب</th>
+                      <th class="text-center">كود الطالب</th>
+                      <th class="text-center">رقم الهاتف</th>
+                      <th class="text-center">رقم ولي الأمر</th>
+                      <th class="text-center">المجموعة</th>
+                      <th class="text-center">الدفع الشهري</th>
+                      <th class="text-center">آخر معاد تم دفعه</th>
+                      <th class="text-center">تاريخ التسجيل</th>
+                      <th class="text-center">الإجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody id="studentsTableBody">
+                    <!-- Students will be loaded here -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="text-center">
+      <div class="spinner"></div>
+      <p class="mt-3">جاري إضافة الطالب...</p>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="/js/employeeJS/addStudent.js"></script>
+  <%- include("./partials/scripts.ejs") %>
+</body>
+</html>

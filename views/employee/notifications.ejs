@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<%- include("./partials/head.ejs") %>
+
+<!-- SweetAlert2 for better notifications -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<style>
+  /* Layout fixes for RTL and sidebar */
+  .main-content {
+    margin-right: 280px;
+    transition: margin-right 0.3s ease;
+  }
+  
+  @media (max-width: 1199px) {
+    .main-content {
+      margin-right: 0;
+    }
+  }
+  
+  /* Professional table styling - Black and White Theme */
+  .table-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    overflow: hidden;
+    border: 1px solid #e0e0e0;
+  }
+  
+  .table {
+    margin-bottom: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  
+  .table th {
+    background: #2c3e50;
+    color: white;
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 1rem 0.75rem;
+    border: none;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  
+  .table td {
+    padding: 1rem 0.75rem;
+    vertical-align: middle;
+    border-bottom: 1px solid #e9ecef;
+    text-align: center;
+    font-size: 0.875rem;
+    background: white;
+  }
+  
+  .table tbody tr:hover {
+    background-color: #f8f9fa;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
+  }
+  
+  /* Professional pagination */
+  .pagination-container {
+    background: white;
+    padding: 1rem;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .pagination {
+    margin: 0;
+    gap: 0.25rem;
+  }
+  
+  .pagination .page-item .page-link {
+    border: 1px solid #dee2e6;
+    color: #495057;
+    background-color: #fff;
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    min-width: 40px;
+    text-align: center;
+  }
+  
+  .pagination .page-item .page-link:hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+    color: #495057;
+    transform: translateY(-1px);
+  }
+  
+  .pagination .page-item.active .page-link {
+    background: #2c3e50;
+    border-color: #2c3e50;
+    color: #fff;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(44, 62, 80, 0.3);
+  }
+  
+  .pagination .page-item.disabled .page-link {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+    color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  
+  /* Professional card styling */
+  .card {
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    background: white;
+  }
+  
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  }
+  
+  .card-header {
+    background: #2c3e50;
+    color: white;
+    border: none;
+    padding: 1.25rem;
+  }
+  
+  .card-body {
+    padding: 1.5rem;
+  }
+  
+  /* Professional form styling */
+  .form-control, .form-select {
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    background-color: #fff;
+  }
+  
+  .form-control:focus, .form-select:focus {
+    border-color: #2c3e50;
+    box-shadow: 0 0 0 0.2rem rgba(44, 62, 80, 0.25);
+    outline: none;
+  }
+  
+  /* Professional button styling */
+  .btn {
+    border-radius: 6px;
+    font-weight: 500;
+    padding: 0.75rem 1.5rem;
+    transition: all 0.2s ease;
+    border: none;
+  }
+  
+  .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  
+  .btn-primary {
+    background: #2c3e50;
+    color: white;
+  }
+  
+  .btn-primary:hover {
+    background: #34495e;
+  }
+  
+  .btn-success {
+    background: #27ae60;
+    color: white;
+  }
+  
+  .btn-success:hover {
+    background: #2ecc71;
+  }
+  
+  .btn-warning {
+    background: #f39c12;
+    color: white;
+  }
+  
+  .btn-warning:hover {
+    background: #f1c40f;
+  }
+  
+  .btn-danger {
+    background: #e74c3c;
+    color: white;
+  }
+  
+  .btn-danger:hover {
+    background: #c0392b;
+  }
+  
+  .btn-info {
+    background: #3498db;
+    color: white;
+  }
+  
+  .btn-info:hover {
+    background: #2980b9;
+  }
+  
+  .btn-light {
+    background: #ecf0f1;
+    color: #2c3e50;
+  }
+  
+  .btn-light:hover {
+    background: #bdc3c7;
+  }
+  
+  /* Professional badge styling */
+  .badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .bg-success {
+    background: #27ae60 !important;
+  }
+  
+  .bg-info {
+    background: #3498db !important;
+  }
+  
+  .bg-warning {
+    background: #f39c12 !important;
+  }
+  
+  .bg-danger {
+    background: #e74c3c !important;
+  }
+  
+  /* Toast notification positioning - Fix for sidebar overlap */
+  .swal2-container {
+    z-index: 99999 !important;
+  }
+  
+  .swal2-popup {
+    z-index: 100000 !important;
+  }
+  
+  /* Custom toast positioning for RTL layout */
+  .swal2-toast {
+    margin-left: 380px !important;
+    margin-left: 20px !important;
+  }
+  
+  /* Custom toast styling for better visibility */
+  .swal2-toast-custom {
+    background: white !important;
+    border: 1px solid #e0e0e0 !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    border-radius: 8px !important;
+    font-family: inherit !important;
+    min-width: 300px !important;
+  }
+  
+  /* Ensure toast appears above sidebar */
+  .swal2-container.swal2-shown {
+    z-index: 999999 !important;
+  }
+  
+  .swal2-container.swal2-shown .swal2-popup {
+    z-index: 1000000 !important;
+  }
+  
+  @media (max-width: 1199px) {
+    .swal2-toast {
+      margin-right: 20px !important;
+      margin-left: 20px !important;
+    }
+  }
+  
+  /* Search and filter styling */
+  .search-container {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 1.5rem;
+    border: 1px solid #e0e0e0;
+  }
+  
+  .search-input {
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    width: 100%;
+  }
+  
+  .search-input:focus {
+    border-color: #2c3e50;
+    box-shadow: 0 0 0 0.2rem rgba(44, 62, 80, 0.25);
+    outline: none;
+  }
+  
+  /* Loading spinner */
+  .loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+  }
+  
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #2c3e50;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #6c757d;
+  }
+  
+  .empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+  
+  /* Responsive design */
+  @media (max-width: 768px) {
+    .table th, .table td {
+      font-size: 0.75rem;
+      padding: 0.5rem;
+    }
+    
+    .pagination-container {
+      flex-direction: column;
+      gap: 1rem;
+    }
+    
+    .search-container {
+      padding: 1rem;
+    }
+  }
+  
+  /* Student code styling */
+  .student-code {
+    background: #2c3e50;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+  }
+  
+  /* Amount styling */
+  .amount-remaining {
+    font-weight: 600;
+    color: #e74c3c;
+  }
+  
+  .amount-paid {
+    font-weight: 600;
+    color: #27ae60;
+  }
+  
+  /* Template section styling */
+  .template-section {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+  }
+  
+  .template-header {
+    background: #34495e;
+    color: white;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  
+  .template-body {
+    padding: 1.5rem;
+  }
+  
+  /* Modal styling */
+  .modal-header {
+    background: #2c3e50;
+    color: white;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  
+  .modal-footer {
+    border-top: 1px solid #e0e0e0;
+    background: #f8f9fa;
+  }
+  
+  /* Dashboard stats improvements */
+  .stats-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  
+  .stats-card h3 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: #2c3e50;
+  }
+  
+  .stats-card p {
+    margin-bottom: 0;
+    color: #6c757d;
+  }
+  
+  .stats-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: white;
+  }
+  
+  .stats-icon.warning {
+    background: #f39c12;
+  }
+  
+  .stats-icon.success {
+    background: #27ae60;
+  }
+  
+  .stats-icon.danger {
+    background: #e74c3c;
+  }
+  
+  .stats-icon.info {
+    background: #3498db;
+  }
+</style>
+
+<body class="g-sidenav-show rtl bg-gray-100">
+  <%- include("./partials/aside.ejs") %>
+
+  <!-- Main content -->
+  <main class="main-content position-relative max-height-vh-100 h-100 border-radius-lg">
+    <%- include("./partials/nav.ejs") %>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-main navbar-expand-lg px-0 mx-3 shadow-none border-radius-xl" id="navbarBlur" data-scroll="true">
+      <div class="container-fluid py-1 px-3">
+        <div class="collapse navbar-collapse mt-sm-0 mt-2 me-md-0 me-sm-4" id="navbar">
+          <ul class="navbar-nav d-flex align-items-center justify-content-end">
+            <li class="nav-item d-xl-none ps-3 d-flex align-items-center">
+              <a href="javascript:;" class="nav-link text-body p-0" id="iconNavbarSidenav">
+                <div class="sidenav-toggler-inner">
+                  <i class="sidenav-toggler-line"></i>
+                  <i class="sidenav-toggler-line"></i>
+                  <i class="sidenav-toggler-line"></i>
+                </div>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+    <!-- End Navbar -->
+
+    <div class="container-fluid py-4">
+      <!-- Page Header -->
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h5 class="mb-0 text-white">إدارة المبالغ المتبقية والإشعارات</h5>
+                  <p class="mb-0 text-white-50">مراقبة وإدارة المبالغ المتبقية للطلاب</p>
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-light btn-sm" onclick="notificationManager.refreshData()">
+                    <i class="material-symbols-rounded text-sm me-1">refresh</i>
+                    تحديث
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dashboard Stats -->
+      <div class="row mb-4">
+        <div class="col-xl-3 col-sm-6 mb-4">
+          <div class="stats-card">
+            <div class="d-flex align-items-center">
+              <div class="flex-grow-1">
+                <p class="text-sm mb-0 text-uppercase font-weight-bold text-secondary">طلاب بمبالغ متبقية</p>
+                <h5 class="font-weight-bolder mb-0" id="studentsWithBalancesCount">0</h5>
+              </div>
+              <div class="stats-icon warning">
+                <i class="material-symbols-rounded">account_balance_wallet</i>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-3 col-sm-6 mb-4">
+          <div class="stats-card">
+            <div class="d-flex align-items-center">
+              <div class="flex-grow-1">
+                <p class="text-sm mb-0 text-uppercase font-weight-bold text-secondary">طلاب بالأقساط</p>
+                <h5 class="font-weight-bolder mb-0" id="studentsWithInstallmentsCount">0</h5>
+              </div>
+              <div class="stats-icon success">
+                <i class="material-symbols-rounded">payments</i>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-3 col-sm-6 mb-4">
+          <div class="stats-card">
+            <div class="d-flex align-items-center">
+              <div class="flex-grow-1">
+                <p class="text-sm mb-0 text-uppercase font-weight-bold text-secondary">إجمالي المبالغ المتبقية</p>
+                <h5 class="font-weight-bolder mb-0" id="totalAmountRemaining">0 ج.م</h5>
+              </div>
+              <div class="stats-icon danger">
+                <i class="material-symbols-rounded">attach_money</i>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-3 col-sm-6 mb-4">
+          <div class="stats-card">
+            <div class="d-flex align-items-center">
+              <div class="flex-grow-1">
+                <p class="text-sm mb-0 text-uppercase font-weight-bold text-secondary">إشعارات اليوم</p>
+                <h5 class="font-weight-bolder mb-0" id="todayNotificationsCount">0</h5>
+              </div>
+              <div class="stats-icon info">
+                <i class="material-symbols-rounded">notifications</i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search and Filters -->
+      <div class="search-container">
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label fw-bold">البحث</label>
+            <input type="text" class="search-input" id="searchInput" placeholder="البحث بالاسم، الكود، أو رقم الهاتف...">
+          </div>
+          <div class="col-md-3 mb-3">
+            <label class="form-label fw-bold">المعلم</label>
+            <select class="form-select" id="teacherFilter">
+              <option value="">جميع المعلمين</option>
+            </select>
+          </div>
+          <div class="col-md-3 mb-3">
+            <label class="form-label fw-bold">نوع الدفع</label>
+            <select class="form-select" id="paymentTypeFilter">
+              <option value="">جميع الأنواع</option>
+              <option value="perCourse">Per Course</option>
+              <option value="perSession">Per Session</option>
+            </select>
+          </div>
+          <div class="col-md-2 mb-3">
+            <label class="form-label fw-bold">عرض</label>
+            <select class="form-select" id="pageSizeSelect">
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Students Table -->
+      <div class="card">
+        <div class="card-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <h6 class="mb-0 text-white">طلاب بمبالغ متبقية</h6>
+            <div class="d-flex gap-2">
+              <button class="btn btn-light btn-sm" onclick="notificationManager.exportToExcel()">
+                <i class="material-symbols-rounded text-sm me-1">download</i>
+                تصدير
+              </button>
+              <button class="btn btn-light btn-sm" onclick="notificationManager.sendBulkNotifications()">
+                <i class="material-symbols-rounded text-sm me-1">send</i>
+                إرسال إشعارات
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-container">
+            <div class="table-responsive" style="max-height: 600px;">
+              <table class="table" id="studentsTable">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>كود الطالب</th>
+                    <th>اسم الطالب</th>
+                    <th>رقم الهاتف</th>
+                    <th>المعلم</th>
+                    <th>الكورس</th>
+                    <th>المبلغ المتبقي</th>
+                    <th>نوع الدفع</th>
+                    <th>آخر تحديث</th>
+                    <th>الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody id="studentsTableBody">
+                  <!-- Data will be loaded here -->
+                </tbody>
+              </table>
+            </div>
+            <div class="pagination-container">
+              <div class="text-muted">
+                عرض <span id="startIndex">1</span> إلى <span id="endIndex">10</span> من <span id="totalCount">0</span> طالب
+              </div>
+              <nav aria-label="Students pagination">
+                <ul class="pagination" id="pagination">
+                  <!-- Pagination will be generated here -->
+                </ul>
+              </nav>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notification Templates Section -->
+      <div class="template-section">
+        <div class="template-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <h6 class="mb-0 text-white">قوالب الإشعارات</h6>
+            <button class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addTemplateModal">
+              <i class="material-symbols-rounded text-sm me-1">add</i>
+              إضافة قالب جديد
+            </button>
+          </div>
+        </div>
+        <div class="template-body">
+          <div class="table-responsive">
+            <table class="table" id="templatesTable">
+              <thead>
+                <tr>
+                  <th>اسم القالب</th>
+                  <th>النوع</th>
+                  <th>الرسالة</th>
+                  <th>آخر تحديث</th>
+                  <th>الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="templatesTableBody">
+                <!-- Templates will be loaded here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bulk Notification Section -->
+      <div class="card">
+        <div class="card-header">
+          <h6 class="mb-0 text-white">إرسال إشعارات مجمعة</h6>
+        </div>
+        <div class="card-body">
+          <!-- Filter Options -->
+          <div class="row mb-4">
+            <div class="col-md-3">
+              <div class="form-group mb-3">
+                <label class="form-label fw-bold">المعلم</label>
+                <select class="form-control" id="bulkTeacherFilter">
+                  <option value="">اختر المعلم</option>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="form-group mb-3">
+                <label class="form-label fw-bold">الكورس</label>
+                <select class="form-control" id="bulkCourseFilter" disabled>
+                  <option value="">اختر الكورس</option>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="form-group mb-3">
+                <label class="form-label fw-bold">نوع الدفع</label>
+                <select class="form-control" id="bulkPaymentTypeFilter">
+                  <option value="">جميع الأنواع</option>
+                  <option value="perCourse">Per Course</option>
+                  <option value="perSession">Per Session</option>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="form-group mb-3">
+                <label class="form-label fw-bold">نوع الإشعار</label>
+                <select class="form-control" id="bulkNotificationType">
+                  <option value="balance">تذكير بالمبلغ المتبقي</option>
+                  <option value="installment">تذكير بالقسط التالي</option>
+                  <option value="custom">رسالة مخصصة</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Student Count Summary -->
+          <div class="row mb-4">
+            <div class="col-12">
+              <div class="alert alert-info" id="bulkStudentSummary" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong>ملخص الطلاب المحددين:</strong>
+                    <span id="bulkStudentCount">0</span> طالب بمبلغ متبقية
+                  </div>
+                  <div>
+                    <strong>إجمالي المبالغ المتبقية:</strong>
+                    <span id="bulkTotalAmount">0</span> ج.م
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Message Configuration -->
+          <div class="row">
+            <div class="col-md-8">
+              <div class="form-group mb-3">
+                <label class="form-label fw-bold">استخدام قالب (اختياري)</label>
+                <select class="form-control" id="bulkNotificationTemplate">
+                  <option value="">اختر قالب</option>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="form-group mb-3">
+                <label class="form-label fw-bold">عدد الرسائل في الدفعة</label>
+                <select class="form-control" id="bulkBatchSize">
+                  <option value="5">5 رسائل</option>
+                  <option value="10" selected>10 رسائل</option>
+                  <option value="20">20 رسالة</option>
+                  <option value="50">50 رسالة</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-12">
+              <div class="form-group mb-3">
+                <label class="form-label fw-bold">الرسالة</label>
+                <textarea class="form-control" id="bulkNotificationMessage" rows="4" placeholder="اكتب رسالتك هنا... يمكنك استخدام المتغيرات: {studentName}, {teacherName}, {courseName}, {amountRemaining}, {totalCourseCost}"></textarea>
+                <small class="form-text text-muted">المتغيرات المتاحة: {studentName}, {teacherName}, {courseName}, {amountRemaining}, {totalCourseCost}</small>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-12">
+              <button class="btn btn-primary" id="sendBulkNotificationsBtn">
+                <i class="material-symbols-rounded text-sm me-1">send</i>
+                إرسال الإشعارات المجمعة
+              </button>
+              <button class="btn btn-info ms-2" id="previewBulkBtn">
+                <i class="material-symbols-rounded text-sm me-1">preview</i>
+                معاينة الطلاب
+              </button>
+              <span class="text-sm text-muted ms-2" id="bulkNotificationStatus"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bulk Preview Modal -->
+      <div class="modal fade" id="bulkPreviewModal" tabindex="-1" aria-labelledby="bulkPreviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="bulkPreviewModalLabel">معاينة الطلاب المحددين</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="table-responsive">
+                <table class="table" id="bulkPreviewTable">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>كود الطالب</th>
+                      <th>اسم الطالب</th>
+                      <th>رقم الهاتف</th>
+                      <th>المعلم</th>
+                      <th>الكورس</th>
+                      <th>المبلغ المتبقي</th>
+                      <th>نوع الدفع</th>
+                    </tr>
+                  </thead>
+                  <tbody id="bulkPreviewTableBody">
+                    <!-- Preview data will be loaded here -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+              <button type="button" class="btn btn-primary" id="confirmBulkSendBtn">
+                <i class="material-symbols-rounded text-sm me-1">send</i>
+                تأكيد الإرسال
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Add Template Modal -->
+  <div class="modal fade" id="addTemplateModal" tabindex="-1" aria-labelledby="addTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="addTemplateModalLabel">إضافة قالب جديد</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="addTemplateForm">
+            <div class="form-group mb-3">
+              <label class="form-label fw-bold">اسم القالب</label>
+              <input type="text" class="form-control" id="templateName" required>
+            </div>
+            <div class="form-group mb-3">
+              <label class="form-label fw-bold">نوع القالب</label>
+              <select class="form-control" id="templateType" required>
+                <option value="balance">تذكير بالمبلغ المتبقي</option>
+                <option value="installment">تذكير بالقسط التالي</option>
+                <option value="completion">إشعار إكمال الكورس</option>
+                <option value="welcome">رسالة ترحيب</option>
+                <option value="custom">مخصص</option>
+              </select>
+            </div>
+            <div class="form-group mb-3">
+              <label class="form-label fw-bold">الرسالة</label>
+              <textarea class="form-control" id="templateMessage" rows="6" required placeholder="اكتب رسالتك هنا... يمكنك استخدام المتغيرات: {studentName}, {teacherName}, {courseName}, {amountRemaining}, {totalCourseCost}"></textarea>
+              <small class="form-text text-muted">المتغيرات المتاحة: {studentName}, {teacherName}, {courseName}, {amountRemaining}, {totalCourseCost}</small>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+          <button type="button" class="btn btn-primary" id="saveTemplateBtn">حفظ القالب</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Template Modal -->
+  <div class="modal fade" id="editTemplateModal" tabindex="-1" aria-labelledby="editTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editTemplateModalLabel">تعديل القالب</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="editTemplateForm">
+            <input type="hidden" id="editTemplateId">
+            <div class="form-group mb-3">
+              <label class="form-label fw-bold">اسم القالب</label>
+              <input type="text" class="form-control" id="editTemplateName" required>
+            </div>
+            <div class="form-group mb-3">
+              <label class="form-label fw-bold">نوع القالب</label>
+              <select class="form-control" id="editTemplateType" required>
+                <option value="balance">تذكير بالمبلغ المتبقي</option>
+                <option value="installment">تذكير بالقسط التالي</option>
+                <option value="completion">إشعار إكمال الكورس</option>
+                <option value="welcome">رسالة ترحيب</option>
+                <option value="custom">مخصص</option>
+              </select>
+            </div>
+            <div class="form-group mb-3">
+              <label class="form-label fw-bold">الرسالة</label>
+              <textarea class="form-control" id="editTemplateMessage" rows="6" required placeholder="اكتب رسالتك هنا... يمكنك استخدام المتغيرات: {studentName}, {teacherName}, {courseName}, {amountRemaining}, {totalCourseCost}"></textarea>
+              <small class="form-text text-muted">المتغيرات المتاحة: {studentName}, {teacherName}, {courseName}, {amountRemaining}, {totalCourseCost}</small>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+          <button type="button" class="btn btn-primary" id="updateTemplateBtn">تحديث القالب</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Send Single Notification Modal -->
+  <div class="modal fade" id="sendNotificationModal" tabindex="-1" aria-labelledby="sendNotificationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="sendNotificationModalLabel">إرسال إشعار</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <strong>الطالب:</strong> <span id="modalStudentName"></span><br>
+              <strong>الكود:</strong> <span id="modalStudentCode"></span><br>
+              <strong>رقم الهاتف:</strong> <span id="modalStudentPhone"></span>
+            </div>
+            <div class="col-md-6">
+              <strong>المعلم:</strong> <span id="modalTeacherName"></span><br>
+              <strong>الكورس:</strong> <span id="modalCourseName"></span><br>
+              <strong>المبلغ المتبقي:</strong> <span id="modalAmountRemaining"></span>
+            </div>
+          </div>
+          <div class="form-group mb-3">
+            <label class="form-label fw-bold">رقم الهاتف</label>
+            <select class="form-control" id="notificationPhoneSelect">
+              <option value="">اختر رقم الهاتف</option>
+            </select>
+          </div>
+          <div class="form-group mb-3">
+            <label class="form-label fw-bold">استخدام قالب (اختياري)</label>
+            <select class="form-control" id="singleNotificationTemplate">
+              <option value="">اختر قالب</option>
+            </select>
+          </div>
+          <div class="form-group mb-3">
+            <label class="form-label fw-bold">الرسالة</label>
+            <textarea class="form-control" id="notificationMessage" rows="4" placeholder="اكتب رسالتك هنا..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+          <button type="button" class="btn btn-primary" id="sendNotificationBtn">
+            <i class="material-symbols-rounded text-sm me-1">send</i>
+            إرسال الإشعار
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Spinner -->
+  <div id="loadingSpinner" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 9999; display: flex; justify-content: center; align-items: center;">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- Core JS Files -->
+  <script src="../assets/js/core/popper.min.js"></script>
+  <script src="../assets/js/core/bootstrap.min.js"></script>
+  <script src="../assets/js/plugins/perfect-scrollbar.min.js"></script>
+  <script src="../assets/js/plugins/smooth-scrollbar.min.js"></script>
+  <script>
+    var win = navigator.platform.indexOf('Win') > -1;
+    if (win && document.querySelector('#sidenav-scrollbar')) {
+      var options = {
+        damping: '0.5'
+      }
+      Scrollbar.init(document.querySelector('#sidenav-scrollbar'), options);
+    }
+  </script>
+  <!-- Control Center for Material Dashboard -->
+  <script src="../assets/js/material-dashboard.min.js?v=3.2.0"></script>
+  <script src="/js/employeeJS/notifications.js"></script>
+</body>
+
+</html>

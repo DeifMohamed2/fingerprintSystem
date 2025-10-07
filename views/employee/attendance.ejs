@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+    <%- include("./partials/head.ejs") %>
+<style>
+.spinner {
+   width: 56px;
+   height: 56px;
+   display: grid;
+   border: 4.5px solid #0000;
+   border-radius: 50%;
+   border-color: #dbdcef #0000;
+   animation: spinner-e04l1k 1s infinite linear;
+}
+
+.spinner::before,
+.spinner::after {
+   content: "";
+   grid-area: 1/1;
+   margin: 2.2px;
+   border: inherit;
+   border-radius: 50%;
+}
+
+.spinner::before {
+   border-color: #ff9847 #0000;
+   animation: inherit;
+   animation-duration: 0.5s;
+   animation-direction: reverse;
+}
+
+.spinner::after {
+   margin: 8.9px;
+}
+#studentTable {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+#studentTable th {
+  background-color: #000;
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  padding: 15px 8px;
+  text-align: center;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+}
+
+#studentTable td {
+  text-align: center;
+  color: #333 !important;
+  border-bottom: 1px solid #e8e9ea;
+  padding: 12px 8px;
+  vertical-align: middle;
+  transition: background-color 0.2s ease;
+}
+
+#studentTable tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+hr {
+  border-top: 1px solid #000;
+  border: 1px solid #000; 
+  margin-top: 10px;
+  margin-bottom: 0;
+  
+}
+.edit-student-btn{
+  background-color: #ff9847 !important; 
+  color: white !important;
+  border: 1px solid transparent !important;
+  padding: 5px 10px !important;
+  border-radius: 5px !important;
+  cursor: pointer !important;
+  transition: all ease 0.3s !important;
+}
+
+.edit-student-btn:hover{
+  scale: 1.07;
+  color: #ff9847 !important;
+  background-color: white !important;
+
+  padding: 5px 10px !important;
+  border: 1px solid #ff9847 !important;
+
+ 
+}
+
+
+.table-responsive  {
+  max-height: 500px;
+  overflow: auto;
+ 
+}
+
+.message{
+  opacity: 0.7;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #F44335;
+  
+}
+
+.amountRemaining{
+  direction: ltr;
+  width: 70px;
+  border-radius: 10px;
+  border: 2px solid #ff9847;
+  padding: 5px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.amountPaid{
+  direction: ltr;
+  width: 70px;
+  border-radius: 10px;
+  border: 2px solid #4CAF50;
+  padding: 5px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+@keyframes spinner-e04l1k {
+   100% {
+      transform: rotate(1turn);
+   }
+}
+</style>
+
+<body class="g-sidenav-show rtl  bg-gray-100">
+    <%- include("./partials/aside.ejs") %>
+
+    <!-- Main content -->
+  <main class="main-content position-relative max-height-vh-100 h-100 border-radius-lg ">
+      <%- include("./partials/nav.ejs") %>
+
+
+    <!-- End Navbar -->
+    <div class="container-fluid py-2">
+
+   
+
+       <div class="row">
+        <div class="col-lg-3 col-sm-6 mb-lg-0 mb-4">
+          <div class="card">
+            <div class="card-header d-flex justify-content-between p-3 pt-2">
+              <div class="icon icon-md icon-shape bg-gradient-dark shadow-dark text-center border-radius-lg">
+                <i class="material-symbols-rounded opacity-10">store</i>
+              </div>
+              <div class="text-start pt-1">
+                <p class="text-sm mb-0 text-capitalize"> عدد الطلاب الحاضرين </p>
+                <h4 class="mb-0" dir="ltr" id="totalStudents">
+                  
+                </h4>
+              </div>
+            </div>
+            <hr class="dark horizontal my-0">
+       
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-6 d-flex align-items-center">
+          <select class="form-select border border-2 rounded text-center" id="groupSelection" name="groupSelection" onchange="disableGroupSelection()">
+            <option selected value="">اختر اسم المجموعة</option>
+            <% allGroups.forEach(group => { %>
+              <option value="<%= group._id %>"><%= group.groupName %> - <%= group.paymentType === 'perCourse' ? 'Per Course' : 'Per Session' %> - <%= group.groupFees %> ج.م</option>
+            <% }) %>
+          </select>
+          <button id="changeGroupButton" class="btn btn-secondary ms-2 d-none" onclick="enableGroupSelection()">تغيير المجموعة</button>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-12">
+          <div class="card my-4">
+               <div class="card-header pb-0 p-3">
+            
+                <form id="attendStudentForm">
+                    <div class="row">
+                      <div class="col-2 d-flex align-items-center">
+                        <h5 class="mb-0"> جدول تحضير الطلاب </h5>
+                      </div>
+                
+                        <div class="col-2 text-center">
+                            <input type="text" class="form-control border border-2 p-2 text-center fw-bold" id="searchStudent" name="searchStudent" placeholder="  الكود او البار كود" required dir="ltr">
+                        </div>
+                        
+                        <div class="col-2 text-end  ">
+                          <button type="submit" class="btn bg-gradient-dark mb-0" id="searchButton">
+                            <i class="material-symbols-rounded text-sm">add</i>&nbsp;&nbsp;اضف بشكل يدوي
+                          </button>
+                        </div>
+                    
+                      <div class="col-6 text-end">
+                        <button type="button" class="btn bg-gradient-dark mb-0" id="reloadButton">
+                          <i class="material-symbols-rounded text-sm">refresh</i>&nbsp;&nbsp;تحديث
+                        </button>
+                        <button type="button" class="btn bg-gradient-success mb-0" id="downloadExcelBtn" >
+                          <i class="material-symbols-rounded text-sm">download</i>&nbsp;&nbsp;Download Excel And Send Copy
+                        </button>
+                           <button type="button" class="btn bg-gradient-dark mb-0" id="AssistantExcelBtn">
+                             <i class="material-symbols-rounded text-sm">download</i>&nbsp;&nbsp;Assistant Excel
+                           </button>
+                      </div>
+                      <div class="col-lg-1 col-sm-6" >
+                        <div id="spinner" class="spinner mx-auto d-none "></div>
+                      </div>
+                    </div>
+                </form> 
+                <h5 class="message" id="message"></h5>
+              </div>
+              <hr>
+            <div class="card-body px-0 pb-2">
+              <div class="table-responsive p-0">
+                <table class="table align-items-center mb-0" id="studentTable">
+                  <thead>
+                    <tr >
+                      <th class="text-center text-uppercase text-secondary text-m font-weight-bolder opacity-7" >اسم الطالب</th>
+                      <th class="text-center text-uppercase text-secondary text-m font-weight-bolder opacity-7" > كود الطالب</th>
+                      <th class="text-center text-uppercase text-secondary text-m  font-weight-bolder opacity-7">رقم الهاتف</th>
+                      <th class="text-center text-uppercase text-secondary text-m  font-weight-bolder opacity-7">رقم هاتف ولي الامر</th>
+                      <th class="text-center text-uppercase text-secondary text-m  font-weight-bolder opacity-7"> مرات الحضور</th>
+                      <th class="text-center text-uppercase text-secondary text-m  font-weight-bolder opacity-7">الدفع الشهري</th>
+                      <th class="text-center text-uppercase text-secondary text-m  font-weight-bolder opacity-7"></th>
+                      <th class="text-center text-uppercase text-secondary text-m  font-weight-bolder opacity-7">اسم الموظف</th>
+
+                      
+                      <th class="text-secondary opacity-7"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="tBody">
+                 
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Notifications Section -->
+      <div class="row mt-4 d-none">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header pb-0">
+              <div class="d-flex justify-content-between align-items-center">
+                <h6>إرسال إشعارات سريعة</h6>
+                             <a href="/employee/notifications" class="btn btn-primary btn-sm">
+               <i class="material-symbols-rounded text-sm me-1">notifications</i>
+               إدارة المتبقي
+             </a>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-4">
+                  <div class="form-group">
+                    <label class="form-control-label">نوع الإشعار</label>
+                    <select class="form-control" id="quickNotificationType">
+                      <option value="balance">تذكير بالمبلغ المتبقي</option>
+                      <option value="installment">تذكير بالقسط التالي</option>
+                      <option value="custom">رسالة مخصصة</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-group">
+                    <label class="form-control-label">الفلتر</label>
+                    <select class="form-control" id="quickNotificationFilter">
+                      <option value="all">جميع الطلاب</option>
+                      <option value="withBalances">طلاب بمبالغ متبقية</option>
+                      <option value="perCourse">طلاب Per Course</option>
+                      <option value="perSession">طلاب Per Session</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="form-group">
+                    <label class="form-control-label">الإجراء</label>
+                    <button class="btn btn-success w-100" id="sendQuickNotificationsBtn">
+                      <i class="material-symbols-rounded text-sm me-1">send</i>
+                      إرسال إشعارات سريعة
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="row mt-3">
+                <div class="col-12">
+                  <div class="form-group">
+                    <label class="form-control-label">الرسالة</label>
+                    <textarea class="form-control" id="quickNotificationMessage" rows="3" placeholder="اكتب رسالتك هنا... يمكنك استخدام المتغيرات: {studentName}, {teacherName}, {courseName}, {amountRemaining}, {totalCourseCost}"></textarea>
+                    <small class="form-text text-muted">سيتم إرسال هذه الرسالة لجميع الطلاب المحددين في الفلتر أعلاه</small>
+                  </div>
+                </div>
+              </div>
+              <div class="row mt-2">
+                <div class="col-12">
+                  <span class="text-sm text-muted" id="quickNotificationStatus"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+    </div>
+  </main>
+
+
+  <script>
+          function disableGroupSelection() {
+            document.getElementById('groupSelection').disabled = true;
+            document.getElementById('changeGroupButton').classList.remove('d-none');
+          }
+
+          function enableGroupSelection() {
+            document.getElementById('groupSelection').disabled = false;
+            document.getElementById('changeGroupButton').classList.add('d-none');
+          }
+  </script>
+
+
+<!--   Core JS Files   -->
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+
+  <!-- Socket.IO client for realtime fingerprint events -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <script src="/js/employeeJS/attendance.js"></script>
+  
+  <script src="../assets/js/core/popper.min.js"></script>
+  <script src="../assets/js/core/bootstrap.min.js"></script>
+  <script src="../assets/js/plugins/perfect-scrollbar.min.js"></script>
+  <script src="../assets/js/plugins/smooth-scrollbar.min.js"></script>
+
+
+  <script>
+    var win = navigator.platform.indexOf('Win') > -1;
+    if (win && document.querySelector('#sidenav-scrollbar')) {
+      var options = {
+        damping: '0.5'
+      }
+      Scrollbar.init(document.querySelector('#sidenav-scrollbar'), options);
+    }
+  </script>
+  <!-- Github buttons -->
+  <script async defer src="https://buttons.github.io/buttons.js"></script>
+  <!-- Control Center for Material Dashboard: parallax effects, scripts for the example pages etc -->
+  <script src="../assets/js/material-dashboard.min.js?v=3.2.0"></script>
+</body>
+
+</html>

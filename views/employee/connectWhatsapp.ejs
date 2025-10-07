@@ -1,0 +1,74 @@
+<%- include('partials/head') %>
+<div class="container py-4">
+  <h3>Connect WhatsApp (Admin Number Only)</h3>
+  <p>Allowed number: <strong><%= adminNumber %></strong></p>
+  <p>Status: <span id="status"><%= status %></span></p>
+  <div class="mb-3">
+    <button id="startBtn" class="btn btn-primary">Start/Reconnect</button>
+  </div>
+  <div id="qrWrap" style="display:none;">
+    <p>Scan this QR with WhatsApp:</p>
+    <img id="qrImg" alt="QR" style="max-width:320px;border:1px solid #ccc;image-rendering: pixelated;" />
+    <div id="qrDebug" style="margin-top:8px;color:#888;font-size:12px;"></div>
+  </div>
+</div>
+<script>
+  const statusEl = document.getElementById('status');
+  const startBtn = document.getElementById('startBtn');
+  const qrWrap = document.getElementById('qrWrap');
+  const qrImg = document.getElementById('qrImg');
+
+  async function fetchQR() {
+    try {
+      const r = await fetch('/employee/connect-whatsapp/qrcode');
+      const body = await r.json();
+      if (body.success && body.qrcode) {
+        qrWrap.style.display = 'block';
+        // Accept direct URL or base64; if plain text token, render via public QR service
+        try {
+          const q = body.qrcode;
+          document.getElementById('qrDebug').textContent = `QR len: ${q.length}`;
+          if (q.startsWith('http') || q.startsWith('data:')) {
+            qrImg.src = q;
+          } else if (/^[A-Za-z0-9+/=]+$/.test(q) && q.length > 500) {
+            // Likely base64
+            qrImg.src = `data:image/png;base64,${q}`;
+          } else {
+            // Likely a token string - generate an image from it
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(q)}`;
+          }
+        } catch (e) {
+          console.error('QR render error', e);
+        }
+        statusEl.textContent = 'NEED_SCAN';
+      } else {
+        statusEl.textContent = body.message || 'Waiting for QR';
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  let pollTimer = null;
+  function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(fetchQR, 3000);
+  }
+
+  startBtn.addEventListener('click', async () => {
+    try {
+      const r = await fetch('/employee/connect-whatsapp/start', { method: 'POST' });
+      const body = await r.json();
+      if (body.success) {
+        statusEl.textContent = 'STARTED';
+        await fetchQR();
+        startPolling();
+      } else {
+        alert(body.message || 'Failed to start connection');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  });
+</script>
+

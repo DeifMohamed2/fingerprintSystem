@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<%- include("./partials/head.ejs") %>
+
+<style>
+  /* Professional White & Black Design */
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #000;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .card {
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    transition: box-shadow 0.3s ease;
+  }
+
+  .card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  }
+
+  .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+    color: #000;
+    font-weight: 600;
+  }
+
+  .stats-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid #dee2e6;
+    text-align: center;
+    padding: 1.5rem;
+  }
+
+  .stats-card h3 {
+    color: #000;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+
+  .stats-card p {
+    color: #6c757d;
+    font-weight: 500;
+    margin-bottom: 0;
+  }
+
+  .stats-icon {
+    width: 60px;
+    height: 60px;
+    background-color: #000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+  }
+
+  .stats-icon i {
+    color: #fff;
+    font-size: 24px;
+  }
+
+  .btn-primary {
+    background-color: #000;
+    border-color: #000;
+    color: #fff;
+  }
+
+  .btn-primary:hover {
+    background-color: #333;
+    border-color: #333;
+  }
+
+  .btn-outline-primary {
+    color: #000;
+    border-color: #000;
+  }
+
+  .btn-outline-primary:hover {
+    background-color: #000;
+    border-color: #000;
+    color: #fff;
+  }
+
+  .table th {
+    background-color: #f8f9fa;
+    color: #000;
+    font-weight: 600;
+    border-bottom: 2px solid #000;
+  }
+
+  .table td {
+    color: #333;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  .loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+  }
+
+  .welcome-card {
+    background: linear-gradient(135deg, #000 0%, #333 100%);
+    color: #fff;
+    border-radius: 12px;
+  }
+
+  .welcome-card h4 {
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .welcome-card p {
+    color: #e9ecef;
+    margin-bottom: 0;
+  }
+
+  .btn-outline-light {
+    border-color: rgba(255, 255, 255, 0.5);
+    color: #fff;
+  }
+
+  .btn-outline-light:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: #fff;
+    color: #fff;
+  }
+
+  .stats-card:hover .stats-icon {
+    transform: scale(1.1);
+    transition: transform 0.3s ease;
+  }
+
+  .stats-card h3 {
+    font-size: 2rem;
+    font-weight: 700;
+  }
+
+  .table-responsive {
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .badge {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.75rem;
+  }
+</style>
+
+<body class="g-sidenav-show rtl bg-gray-100">
+  <%- include("./partials/aside.ejs") %>
+  
+  <main class="main-content position-relative max-height-vh-100 h-100 border-radius-lg">
+    <%- include("./partials/nav.ejs") %>
+    
+    <div class="container-fluid py-4">
+      <!-- Welcome Section -->
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="card welcome-card">
+            <div class="card-body">
+              <div class="row align-items-center">
+                <div class="col-md-8">
+                  <h4 class="mb-2">مرحباً بك في نظام الحضور</h4>
+                  <p>نظام إدارة الحضور والطلاب المتقدم</p>
+                </div>
+                <div class="col-md-4 text-end">
+                  <button id="refreshDashboard" class="btn btn-outline-light me-3" title="تحديث البيانات">
+                    <i class="material-symbols-rounded">refresh</i>
+                  </button>
+                  <i class="material-symbols-rounded" style="font-size: 48px; opacity: 0.3;">dashboard</i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statistics Cards -->
+      <div class="row mb-4">
+        <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
+          <div class="card stats-card">
+            <div class="stats-icon">
+              <i class="material-symbols-rounded">group</i>
+            </div>
+            <h3 id="totalStudents">0</h3>
+            <p>إجمالي الطلاب</p>
+          </div>
+        </div>
+        <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
+          <div class="card stats-card">
+            <div class="stats-icon">
+              <i class="material-symbols-rounded">event_available</i>
+            </div>
+            <h3 id="todayAttendance">0</h3>
+            <p>حضور اليوم</p>
+          </div>
+        </div>
+
+        <div class="col-xl-3 col-sm-6">
+          <div class="card stats-card">
+            <div class="stats-icon">
+              <i class="material-symbols-rounded">trending_up</i>
+            </div>
+            <h3 id="attendanceRate">0%</h3>
+            <p>معدل الحضور</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header">
+              <h6 class="mb-0">الإجراءات السريعة</h6>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-3 mb-3">
+                  <a href="/employee/attendance" class="btn btn-primary w-100">
+                    <i class="material-symbols-rounded me-2">event_available</i>
+                    تسجيل الحضور
+                  </a>
+                </div>
+                <div class="col-md-3 mb-3">
+                  <a href="/employee/add-student" class="btn btn-outline-primary w-100">
+                    <i class="material-symbols-rounded me-2">person_add</i>
+                    إضافة طالب
+                  </a>
+                </div>
+                <div class="col-md-3 mb-3">
+                  <a href="/employee/group" class="btn btn-outline-primary w-100">
+                    <i class="material-symbols-rounded me-2">group</i>
+                    إدارة المجموعات
+                  </a>
+                </div>
+                <div class="col-md-3 mb-3">
+                  <a href="/employee/student-logs" class="btn btn-outline-primary w-100">
+                    <i class="material-symbols-rounded me-2">history</i>
+                    سجل الطلاب
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="row">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header">
+              <h6 class="mb-0">النشاط الأخير</h6>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>الطالب</th>
+                      <th>المجموعة</th>
+                      <th>الوقت</th>
+                      <th>المبلغ</th>
+                      <th>الحالة</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recentActivityTable">
+                    <tr>
+                      <td colspan="5" class="text-center text-muted">لا توجد أنشطة حديثة</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="text-center">
+      <div class="spinner"></div>
+      <p class="mt-3">جاري التحميل...</p>
+    </div>
+  </div>
+
+  <script src="/js/employeeJS/das.js"></script>
+  <%- include("./partials/scripts.ejs") %>
+</body>
+</html>
