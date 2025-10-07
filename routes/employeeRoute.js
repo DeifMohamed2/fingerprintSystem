@@ -120,6 +120,8 @@ router.get('/download-attendance-excel', authMiddleware, employeeController.down
 
 router.put('/pay-monthly-fee/:id', authMiddleware, employeeController.payMonthlyFee);
 
+router.post('/send-absence-messages', authMiddleware, employeeController.sendAbsenceMessages);
+
 
 
 // Invoice routes removed

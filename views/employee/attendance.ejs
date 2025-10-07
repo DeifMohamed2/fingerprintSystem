@@ -32,6 +32,39 @@
 .spinner::after {
    margin: 8.9px;
 }
+
+/* Bootstrap Spinner Styles */
+.spinner-border {
+  display: inline-block;
+  width: 2rem;
+  height: 2rem;
+  vertical-align: text-bottom;
+  border: 0.25em solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spinner-border-spin 0.75s linear infinite;
+}
+
+.spinner-border.text-primary {
+  color: #0d6efd !important;
+}
+
+@keyframes spinner-border-spin {
+  100% { transform: rotate(360deg); }
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
 #studentTable {
   border-radius: 8px;
   overflow: hidden;
@@ -216,12 +249,9 @@ hr {
                         <button type="button" class="btn bg-gradient-dark mb-0" id="reloadButton">
                           <i class="material-symbols-rounded text-sm">refresh</i>&nbsp;&nbsp;تحديث
                         </button>
-                        <button type="button" class="btn bg-gradient-success mb-0" id="downloadExcelBtn" >
-                          <i class="material-symbols-rounded text-sm">download</i>&nbsp;&nbsp;Download Excel And Send Copy
+                        <button type="button" class="btn bg-gradient-success mb-0" id="endAttendanceBtn" >
+                          <i class="material-symbols-rounded text-sm">check_circle</i>&nbsp;&nbsp;نهاية الحضور
                         </button>
-                           <button type="button" class="btn bg-gradient-dark mb-0" id="AssistantExcelBtn">
-                             <i class="material-symbols-rounded text-sm">download</i>&nbsp;&nbsp;Assistant Excel
-                           </button>
                       </div>
                       <div class="col-lg-1 col-sm-6" >
                         <div id="spinner" class="spinner mx-auto d-none "></div>

@@ -783,6 +783,32 @@ const updateStudent = async (req, res) => {
       return res.status(404).send({ message: 'الطالب غير موجود' });
     }
 
+    // Send WhatsApp message if payment was made
+    if (monthlyPaymentPaid && !current.monthlyPaymentPaid) {
+      const paymentMessage = `
+عزيزي ولي أمر الطالب ${student.studentName},
+-----------------------------
+نود إعلامكم بأنه تم استلام الرسوم الشهرية بنجاح.
+المبلغ: تم الدفع
+التاريخ: ${new Date().toLocaleDateString()}
+شكرًا لتعاونكم.
+`;
+      
+      try {
+        const resp = await waService.sendWasenderMessage(
+          paymentMessage,
+          student.studentParentPhone,
+          waService.DEFAULT_ADMIN_PHONE
+        );
+        if (!resp.success) {
+          console.error('Error sending payment message:', resp.message);
+        }
+      } catch (error) {
+        console.error('Error sending payment message:', error);
+        // Continue with the process even if message sending fails
+      }
+    }
+
     // Sync membership in groups list with proper count updates
     if (newGroups) {
       const prevGroups = (current.groups || []).map(String);
@@ -1284,10 +1310,12 @@ const getAttendedStudents = async (req, res) => {
     
     console.log('Attendance found with', attendance.studentsPresent.length, 'students');
 
-    // Filter out null students (to prevent errors in calculations)
+    // Filter out null students and students with null student references
     const filteredStudents = attendance.studentsPresent.filter(
-      (sp) => sp.student
+      (sp) => sp.student && sp.student._id
     );
+
+    console.log('Filtered students count:', filteredStudents.length);
 
     // Calculate attendance count for each student
     const studentAttendanceCounts = await Promise.all(
@@ -1301,15 +1329,35 @@ const getAttendedStudents = async (req, res) => {
       })
     );
 
-    // Add attendance count to each student
-    const studentsWithAttendanceCount = filteredStudents.map((student) => {
+    // Add attendance count to each student and ensure all required fields exist
+    const studentsWithAttendanceCount = filteredStudents.map((studentEntry) => {
+      const student = studentEntry.student;
+      
+      // Ensure student object exists and has required properties
+      if (!student || !student._id) {
+        console.warn('Skipping invalid student entry:', studentEntry);
+        return null;
+      }
+      
       const attendanceCount =
         studentAttendanceCounts.find(
           (count) =>
-            count.studentId.toString() === student.student._id.toString()
+            count.studentId.toString() === student._id.toString()
         )?.attendanceCount || 0;
-      return { ...student.toObject(), attendanceCount };
-    });
+        
+      return { 
+        ...studentEntry.toObject(), 
+        attendanceCount,
+        student: {
+          ...student.toObject(),
+          monthlyPaymentPaid: student.monthlyPaymentPaid || false,
+          studentName: student.studentName || 'Unknown',
+          studentCode: student.studentCode || 'N/A',
+          studentPhoneNumber: student.studentPhoneNumber || 'N/A',
+          studentParentPhone: student.studentParentPhone || 'N/A'
+        }
+      };
+    }).filter(student => student !== null); // Remove any null entries
 
     res.status(200).json({
       students: studentsWithAttendanceCount,
@@ -1326,7 +1374,7 @@ const payMonthlyFee = async (req, res) => {
   const employeeId = req.employeeId;
 
   try {
-    const student = await Student.findById(id);
+    const student = await Student.findById(id).populate('groups');
     if (!student) {
       return res.status(404).json({ message: 'الطالب غير موجود' });
     }
@@ -1344,6 +1392,28 @@ const payMonthlyFee = async (req, res) => {
     });
 
     await student.save();
+
+    // Send WhatsApp message to parent about payment
+    const paymentMessage = `
+عزيزي ولي أمر الطالب ${student.studentName},
+-----------------------------
+نود إعلامكم بأنه تم تسجيل دفع الرسوم الشهرية بنجاح.
+الطالب: ${student.studentName}
+التاريخ: ${new Date().toLocaleDateString()}
+شكرًا لتعاونكم.
+`;
+
+    try {
+      const resp = await waService.sendWasenderMessage(
+        paymentMessage,
+        student.studentParentPhone,
+        waService.DEFAULT_ADMIN_PHONE
+      );
+      if (!resp.success) console.error('Error sending payment message:', resp.message);
+    } catch (error) {
+      console.error('Error sending payment message:', error);
+      // Continue with the process even if message sending fails
+    }
 
     res.status(200).json({
       message: `تم تسجيل دفع الرسوم الشهرية للطالب ${student.studentName}`,
@@ -3382,6 +3452,210 @@ const testListenerConnection = async (req, res) => {
   }
 };
 
+// Send absence messages to students who didn't attend
+const sendAbsenceMessages = async (req, res) => {
+  try {
+    const { groupId } = req.body;
+    
+    // Validate input
+    if (!groupId || typeof groupId !== 'string' || groupId.trim() === '') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'يجب اختيار المجموعة - معرف المجموعة غير صحيح' 
+      });
+    }
+
+    console.log(`🚀 Starting sendAbsenceMessages for group: ${groupId}`);
+
+    // Get the group details
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'المجموعة غير موجودة' 
+      });
+    }
+
+    console.log(`✅ Found group: ${group.groupName}`);
+
+    // Get today's attendance for this group
+    const todayDate = getDateTime();
+    const attendance = await Attendance.findOne({
+      date: todayDate,
+      group: groupId,
+    }).populate({
+      path: 'studentsPresent.student',
+      match: { isBlocked: false }, // Only populate non-blocked students
+      select: 'studentName studentParentPhone _id' // Only select needed fields
+    });
+
+    // Get all students in this group with validation
+    const allStudentsInGroup = await Student.find({
+      groups: groupId,
+      isBlocked: false, // Don't send to blocked students
+      studentName: { $exists: true, $ne: null }, // Ensure name exists
+      studentParentPhone: { $exists: true, $ne: null, $regex: /^\d{11}$/ } // Ensure valid phone number
+    }).select('studentName studentParentPhone _id groups');
+
+    console.log(`Found ${allStudentsInGroup.length} valid students in group ${group.groupName}`);
+    
+    if (attendance) {
+      console.log(`Found attendance record with ${attendance.studentsPresent.length} present students`);
+    } else {
+      console.log('No attendance record found for today');
+    }
+
+    // Find students who didn't attend
+    const presentStudentIds = attendance ? 
+      attendance.studentsPresent
+        .filter(sp => {
+          if (!sp.student || !sp.student._id) {
+            console.warn('⚠️ Found attendance record with null/invalid student:', sp);
+            return false;
+          }
+          return true;
+        })
+        .map(sp => sp.student._id.toString()) : [];
+    
+    console.log(`Present student IDs: [${presentStudentIds.join(', ')}]`);
+    
+    const absentStudents = allStudentsInGroup.filter(student => {
+      if (!student || !student._id) {
+        console.warn('⚠️ Found null/invalid student in group:', student);
+        return false;
+      }
+      return !presentStudentIds.includes(student._id.toString());
+    });
+
+    console.log(`Found ${absentStudents.length} absent students in group ${group.groupName}`);
+
+    if (absentStudents.length === 0) {
+      return res.json({
+        success: true,
+        message: 'جميع الطلاب حضروا اليوم - لا توجد رسائل للإرسال',
+        details: {
+          totalAbsent: 0,
+          messagesSent: 0,
+          errors: 0,
+          groupName: group.groupName
+        }
+      });
+    }
+
+    // Calculate estimated time (7 seconds per message)
+    const estimatedTimeMinutes = Math.ceil((absentStudents.length * 7) / 60);
+    
+    // Send initial response with estimated time
+    res.json({
+      success: true,
+      message: `بدء إرسال ${absentStudents.length} رسالة...`,
+      details: {
+        totalAbsent: absentStudents.length,
+        estimatedTimeMinutes: estimatedTimeMinutes,
+        groupName: group.groupName,
+        status: 'started'
+      }
+    });
+
+    // Process messages in background with delays
+    let successCount = 0;
+    let errorCount = 0;
+    const errors = [];
+
+    console.log(`Starting to send ${absentStudents.length} absence messages with 7-second delays`);
+
+    for (let i = 0; i < absentStudents.length; i++) {
+      const student = absentStudents[i];
+      
+      try {
+        // Validate student data
+        if (!student || !student.studentName || !student.studentParentPhone) {
+          errorCount++;
+          const errorMsg = `بيانات الطالب غير مكتملة - ID: ${student?._id || 'unknown'}`;
+          errors.push(`طالب غير معروف: ${errorMsg}`);
+          console.error(`❌ Skipping student with incomplete data:`, student);
+          continue;
+        }
+
+        // Validate phone number
+        if (student.studentParentPhone.length !== 11) {
+          errorCount++;
+          const errorMsg = `رقم هاتف غير صحيح: ${student.studentParentPhone}`;
+          errors.push(`${student.studentName}: ${errorMsg}`);
+          console.error(`❌ Invalid phone number for ${student.studentName}: ${student.studentParentPhone}`);
+          continue;
+        }
+
+        const absenceMessage = `
+🏫 نظام إدارة الحضور
+-----------------------------
+عزيزي ولي أمر الطالب: ${student.studentName}
+
+نود إعلامكم بأن الطالب لم يحضر اليوم.
+
+📚 المجموعة: ${group.groupName}
+📅 التاريخ: ${new Date().toLocaleDateString('ar-EG')}
+⏰ الوقت: ${new Date().toLocaleTimeString('ar-EG')}
+
+يرجى التواصل معنا في حالة وجود أي استفسارات.
+-----------------------------
+مع تحيات إدارة المركز`;
+
+        const resp = await waService.sendWasenderMessage(
+          absenceMessage,
+          student.studentParentPhone,
+          waService.DEFAULT_ADMIN_PHONE
+        );
+        
+        if (resp && resp.success) {
+          successCount++;
+          console.log(`✅ Message ${i + 1}/${absentStudents.length} sent successfully to parent of ${student.studentName}`);
+        } else {
+          errorCount++;
+          const errorMsg = resp?.message || 'Unknown error';
+          errors.push(`${student.studentName}: ${errorMsg}`);
+          console.error(`❌ Failed to send message to parent of ${student.studentName}:`, errorMsg);
+        }
+      } catch (error) {
+        errorCount++;
+        const errorMsg = error.message || 'Network error';
+        const studentName = student?.studentName || 'طالب غير معروف';
+        errors.push(`${studentName}: ${errorMsg}`);
+        console.error(`❌ Error sending message to parent of ${studentName}:`, error);
+      }
+
+      // Add delay between messages (6-8 seconds random)
+      if (i < absentStudents.length - 1) {
+        const delay = Math.floor(Math.random() * (8000 - 6000 + 1)) + 6000; // 6-8 seconds
+        console.log(`⏳ Waiting ${delay/1000}s before next message...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    // Log final results
+    const finalMessage = `✅ Completed sending absence messages: ${successCount} success, ${errorCount} errors out of ${absentStudents.length} total`;
+    console.log(finalMessage);
+
+    if (errors.length > 0) {
+      console.log('❌ Errors encountered:', errors);
+    }
+
+    // Note: Since we already sent the response, we can't send another one
+    // The frontend will need to handle the async nature of this operation
+
+  } catch (error) {
+    console.error('❌ Critical error in sendAbsenceMessages:', error);
+    
+    // Only send error response if we haven't sent a response yet
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        success: false, 
+        message: 'حدث خطأ أثناء إرسال الرسائل: ' + error.message 
+      });
+    }
+  }
+};
+
 module.exports = {
   dashboard,
   getDashboardStats,
@@ -3451,4 +3725,5 @@ module.exports = {
   deleteDeviceUser,
   getAllDeviceUsers,
   testListenerConnection,
+  sendAbsenceMessages,
 };

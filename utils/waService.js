@@ -3,7 +3,7 @@ const fs = require('fs');
 const wasender = require('./wasender');
 
 // Default sender/admin phone that owns the active WhatsApp session
-const DEFAULT_ADMIN_PHONE = '01156012078';
+const DEFAULT_ADMIN_PHONE = '01110140901';
 // Base URL to serve public files (Excel, etc.)
 const APP_BASE_URL =  'https://attendance-fingerprint-system.online';
 

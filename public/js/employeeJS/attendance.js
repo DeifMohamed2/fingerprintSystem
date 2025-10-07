@@ -10,7 +10,7 @@ const message = document.getElementById('message');
 const totalStudents = document.getElementById('totalStudents');
 const invoiceForm = document.getElementById('invoiceForm');
 const invoiceTBody = document.querySelector('#invoiceTable tbody');
-const downloadExcelBtn = document.getElementById('downloadExcelBtn');
+const endAttendanceBtn = document.getElementById('endAttendanceBtn');
 const mockCheck = document.getElementById('mockCheck');
 
 // Device status checking functionality
@@ -166,6 +166,9 @@ async function attendStudent(event) {
               <p><strong>تاريخ الحظر:</strong> ${responseData.blockedAt ? new Date(responseData.blockedAt).toLocaleDateString() : 'غير محدد'}</p>
             `,
             confirmButtonText: 'حسناً'
+          }).then(() => {
+            // Stop any playing audio when modal is closed
+            stopWarningSound();
           });
         } else if (response.status === 403 && responseData.message === 'هذا الطالب غير مسجل في المجموعة المختارة') {
           // Show detailed information about student's groups
@@ -182,6 +185,9 @@ async function attendStudent(event) {
               <p>يرجى اختيار المجموعة الصحيحة أو تغيير المجموعة المختارة.</p>
             `,
             confirmButtonText: 'حسناً'
+          }).then(() => {
+            // Stop any playing audio when modal is closed
+            stopWarningSound();
           });
         } else {
           message.textContent = responseData.message;
@@ -254,10 +260,16 @@ const addStudentsToTable = (students, groupId) => {
       // Payment type is always per session
       const paymentTypeBadge = '<span class="badge bg-info text-white">Per Session</span>';
       
+      // Check if student and student.student exist to prevent null errors
+      if (!student || !student.student) {
+        console.warn('Skipping null or invalid student:', student);
+        return;
+      }
+      
       // Check if monthly payment is due (first day of month)
       const today = new Date();
       const isFirstOfMonth = today.getDate() === 1;
-      const monthlyPaymentPaid = student.student.monthlyPaymentPaid;
+      const monthlyPaymentPaid = student.student.monthlyPaymentPaid || false;
       const shouldShowWarning = isFirstOfMonth && !monthlyPaymentPaid;
       
       // Track if there are unpaid students
@@ -266,10 +278,10 @@ const addStudentsToTable = (students, groupId) => {
       }
       
       tr.innerHTML = `
-            <td class="text-center">${student.student.studentName}</td>
-            <td class="text-center">${student.student.studentCode}</td>
-            <td class="text-center">${student.student.studentPhoneNumber}</td>
-            <td class="text-center">${student.student.studentParentPhone}</td>
+            <td class="text-center">${student.student.studentName || 'N/A'}</td>
+            <td class="text-center">${student.student.studentCode || 'N/A'}</td>
+            <td class="text-center">${student.student.studentPhoneNumber || 'N/A'}</td>
+            <td class="text-center">${student.student.studentParentPhone || 'N/A'}</td>
             <td class="text-center">${
               student.attendanceCount || 'Waiting for refresh'
             }</td>
@@ -280,19 +292,18 @@ const addStudentsToTable = (students, groupId) => {
               }
             </td>
             <td class="text-center">
-              <button class="btn btn-danger btn-sm delete">Delete</button>
+              <button class="btn btn-danger btn-sm delete" data-student-id="${student.student._id || ''}">Delete</button>
               ${!monthlyPaymentPaid ? 
-                `<button class="btn btn-success btn-sm pay-monthly" data-student-id="${student.student._id}">دفع شهري</button>` : 
+                `<button class="btn btn-success btn-sm pay-monthly" data-student-id="${student.student._id || ''}">دفع شهري</button>` : 
                 ''
               }
             </td>
-            <td class="text-center">${student.addedBy.employeeName}</td>
+            <td class="text-center">${student.addedBy ? student.addedBy.employeeName : 'N/A'}</td>
           `;
 
        // Event listeners
        tr.querySelector('.delete').addEventListener('click', (event) => {
-         const row = event.target.closest('tr');
-         const studentId = row.querySelector('[data-student-id]').dataset.studentId;
+         const studentId = event.target.dataset.studentId;
          deleteStudent(studentId , groupId);
        });
 
@@ -376,6 +387,25 @@ async function payMonthlyFee(studentId) {
     }
 }
 
+// Global variable to store current audio instance
+let currentAudio = null;
+let audioTimeout = null;
+
+// Global click listener to stop audio on any user interaction
+document.addEventListener('click', function() {
+    // Stop warning sound on any click
+    if (currentAudio) {
+        stopWarningSound();
+    }
+});
+
+// Also stop audio when escape key is pressed
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape' && currentAudio) {
+        stopWarningSound();
+    }
+});
+
 // Function to show monthly payment warning (modal only, no sound)
 function showMonthlyPaymentWarning(student) {
     // Play warning sound - using a more noticeable beep sound
@@ -390,27 +420,47 @@ function showMonthlyPaymentWarning(student) {
         showCloseButton: true,
         confirmButtonColor: '#ff6b35',
         cancelButtonColor: '#6c757d'
+    }).then(() => {
+        // Stop the audio when user clicks "حسناً" or closes the modal
+        stopWarningSound();
     });
 }
 
 // Function to play warning sound using MP3 file
 function playWarningSound() {
     try {
+        // Stop any currently playing audio first
+        stopWarningSound();
+        
         // Use the provided MP3 alert sound
-        const audio = new Audio('/mp3/aler.mp3');
-        audio.volume = 0.8; // Set volume to 80%
+        currentAudio = new Audio('/mp3/alert.mp3');
+        currentAudio.volume = 1; // Set volume to 100%
+        currentAudio.loop = true; // Loop the sound until stopped
+        
+        // Auto-stop the sound after 10 seconds to prevent infinite playing
+        audioTimeout = setTimeout(() => {
+            stopWarningSound();
+        }, 10000);
         
         // Play the sound
-        audio.play().then(() => {
+        currentAudio.play().then(() => {
             console.log('Alert sound played successfully');
         }).catch(error => {
             console.error('Failed to play alert sound:', error);
             
             // Fallback: try to play again with different settings
             setTimeout(() => {
-                const fallbackAudio = new Audio('/mp3/aler.mp3');
-                fallbackAudio.volume = 0.5;
-                fallbackAudio.play().catch(fallbackError => {
+                stopWarningSound(); // Stop current audio first
+                currentAudio = new Audio('/mp3/aler.mp3');
+                currentAudio.volume = 0.5;
+                currentAudio.loop = true;
+                
+                // Auto-stop fallback after 10 seconds
+                audioTimeout = setTimeout(() => {
+                    stopWarningSound();
+                }, 10000);
+                
+                currentAudio.play().catch(fallbackError => {
                     console.error('Fallback audio also failed:', fallbackError);
                 });
             }, 100);
@@ -421,28 +471,162 @@ function playWarningSound() {
     }
 }
 
-// download Excel File
+// Function to stop warning sound
+function stopWarningSound() {
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        currentAudio = null;
+        console.log('Alert sound stopped');
+    }
+    
+    if (audioTimeout) {
+        clearTimeout(audioTimeout);
+        audioTimeout = null;
+    }
+}
 
-downloadExcelBtn.addEventListener('click', async () => {
+// End Attendance - Send messages to absent students
+
+endAttendanceBtn.addEventListener('click', async () => {
     try {
-        downloadExcelBtn.innerHTML = 'جاري التحميل...';
         const groupId = groupSelection.value;
-        const response = await fetch(`/employee/download-attendance-excel?groupId=${groupId}`);
-        if (!response.ok) {
-   
-        throw new Error('Failed to download excel file');
+        
+        if (!groupId) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'تحذير',
+                text: 'يجب اختيار المجموعة أولاً',
+                confirmButtonText: 'حسناً'
+            });
+            return;
         }
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const date = new Date().toLocaleDateString().replace(/\//g, '-');
-        a.download = `كشف حضور الطلاب - ${date}.xlsx`;
-        a.click();
-        downloadExcelBtn.innerHTML = '<i class="material-symbols-rounded text-sm">download</i>&nbsp;&nbsp;Download Excel And Send Copy';
-        URL.revokeObjectURL(url);
+
+        // Confirm action
+        const result = await Swal.fire({
+            title: 'نهاية الحضور',
+            text: 'هل تريد إرسال رسائل إلى الطلاب الغائبين؟',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'نعم، أرسل الرسائل',
+            cancelButtonText: 'إلغاء'
+        });
+
+        if (!result.isConfirmed) {
+            return;
+        }
+
+        // Show loading state
+        endAttendanceBtn.innerHTML = '<i class="material-symbols-rounded text-sm">hourglass_empty</i>&nbsp;&nbsp;جاري البدء...';
+        endAttendanceBtn.disabled = true;
+
+        const response = await fetch('/employee/send-absence-messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ groupId }),
+        });
+
+        const responseData = await response.json();
+
+        if (response.ok && responseData.success) {
+            // Check if this is the initial response with estimated time
+            if (responseData.details && responseData.details.status === 'started') {
+                const { totalAbsent, estimatedTimeMinutes, groupName } = responseData.details;
+                
+                if (totalAbsent === 0) {
+                    // No absent students
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'لا توجد رسائل للإرسال',
+                        text: 'جميع الطلاب حضروا اليوم!',
+                        confirmButtonText: 'حسناً'
+                    });
+                } else {
+                    // Show progress modal with estimated time
+                    Swal.fire({
+                        title: 'جاري إرسال الرسائل',
+                        html: `
+                            <div class="text-center">
+                                <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p><strong>المجموعة:</strong> ${groupName}</p>
+                                <p><strong>عدد الرسائل:</strong> ${totalAbsent} رسالة</p>
+                                <p><strong>الوقت المتوقع:</strong> حوالي ${estimatedTimeMinutes} دقيقة</p>
+                                <p class="text-muted">سيتم إرسال رسالة كل 6-8 ثواني</p>
+                                <div class="alert alert-info mt-3" style="font-size: 0.9rem;">
+                                    <small>✅ يتم الإرسال في الخلفية، يمكنك متابعة العمل.<br/>📝 ستظهر النتائج في سجلات النظام.</small>
+                                </div>
+                            </div>
+                        `,
+                        showConfirmButton: true,
+                        confirmButtonText: 'فهمت',
+                        allowOutsideClick: false,
+                        timer: 10000, // Auto-close after 10 seconds
+                        timerProgressBar: true
+                    });
+
+                    // Show success message in the UI
+                    message.textContent = `بدء إرسال ${totalAbsent} رسالة للطلاب الغائبين (الوقت المتوقع: ${estimatedTimeMinutes} دقيقة)`;
+                    message.style.color = '#28a745';
+                    
+                    setTimeout(() => {
+                        message.textContent = '';
+                        message.style.color = '#F44335';
+                    }, 15000);
+                }
+            } else {
+                // Handle other success responses
+                Swal.fire({
+                    icon: 'success',
+                    title: 'تم بنجاح',
+                    html: `
+                        <p><strong>${responseData.message}</strong></p>
+                        ${responseData.details ? `
+                            <p>المجموعة: ${responseData.details.groupName}</p>
+                            <p>عدد الطلاب الغائبين: ${responseData.details.totalAbsent}</p>
+                            ${responseData.details.messagesSent !== undefined ? `<p>الرسائل المُرسلة: ${responseData.details.messagesSent}</p>` : ''}
+                            ${responseData.details.errors > 0 ? `<p style="color: orange;">عدد الأخطاء: ${responseData.details.errors}</p>` : ''}
+                        ` : ''}
+                    `,
+                    confirmButtonText: 'حسناً'
+                });
+            }
+        } else {
+            // Handle error response
+            const errorMessage = responseData.message || 'حدث خطأ أثناء إرسال الرسائل';
+            
+            Swal.fire({
+                icon: 'error',
+                title: 'خطأ في الإرسال',
+                text: errorMessage,
+                confirmButtonText: 'حسناً'
+            });
+            
+            message.textContent = 'فشل في إرسال الرسائل: ' + errorMessage;
+            message.style.color = '#F44335';
+        }
+
     } catch (error) {
-        console.error('Error downloading excel file:', error);
+        console.error('Error sending absence messages:', error);
+        
+        Swal.fire({
+            icon: 'error',
+            title: 'خطأ في الاتصال',
+            text: 'حدث خطأ في الاتصال بالخادم. يرجى المحاولة مرة أخرى.',
+            confirmButtonText: 'حسناً'
+        });
+        
+        message.textContent = 'خطأ في الاتصال بالخادم';
+        message.style.color = '#F44335';
+    } finally {
+        // Reset button state
+        endAttendanceBtn.innerHTML = '<i class="material-symbols-rounded text-sm">check_circle</i>&nbsp;&nbsp;نهاية الحضور';
+        endAttendanceBtn.disabled = false;
     }
 });
 
@@ -486,9 +670,6 @@ function tableToExcel() {
 
   XLSX.writeFile(workbook, 'Student_Attendance.xlsx');
 }
-
-// Add event listener to download Excel button
-document.getElementById('AssistantExcelBtn').addEventListener('click', tableToExcel);
 
 // Quick Notifications Functionality
 document.addEventListener('DOMContentLoaded', function() {

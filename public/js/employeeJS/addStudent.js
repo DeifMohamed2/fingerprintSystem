@@ -18,9 +18,12 @@ async function refreshDeviceStatus() {
     const response = await fetch('/employee/device-status');
     const data = await response.json();
     
-    if (data.success) {
-      // Reload the page to show updated device status
-      window.location.reload();
+    if (data.success && data.data) {
+      // Update device status alert without page reload
+      updateDeviceStatusDisplay(data.data);
+      // Update device select dropdown
+      await updateDeviceSelect(data.data);
+      showToast('تم تحديث حالة الأجهزة بنجاح', false);
     } else {
       showToast('فشل في تحديث حالة الأجهزة', true);
     }
@@ -30,8 +33,123 @@ async function refreshDeviceStatus() {
   }
 }
 
-// Auto-refresh device status every 30 seconds
-setInterval(refreshDeviceStatus, 30000);
+// Function to update device status display
+function updateDeviceStatusDisplay(deviceData) {
+  // Find existing device status alerts
+  const deviceAlerts = document.querySelectorAll('.alert[role="alert"]');
+  
+  // Remove old alerts
+  deviceAlerts.forEach(alert => {
+    if (alert.textContent.includes('خدمة أجهزة البصمة') || 
+        alert.textContent.includes('لا توجد أجهزة بصمة') || 
+        alert.textContent.includes('جهاز بصمة متاح')) {
+      alert.remove();
+    }
+  });
+  
+  // Find the device selection container
+  const deviceSelectContainer = document.querySelector('select[name="deviceId"]').parentNode;
+  
+  // Create new alert based on device status
+  let alertHTML = '';
+  let alertClass = '';
+  let iconName = '';
+  let message = '';
+  
+  if (deviceData.serviceError) {
+    alertClass = 'alert-warning';
+    iconName = 'warning';
+    if (deviceData.serviceDown) {
+      message = 'خدمة أجهزة البصمة غير متاحة. يرجى التأكد من تشغيل الخدمة.';
+    } else if (deviceData.timeout) {
+      message = 'انتهت مهلة الاتصال بأجهزة البصمة. قد تكون الأجهزة مشغولة أو لا تستجيب.';
+    } else {
+      message = deviceData.errorMessage || 'خطأ في الاتصال بأجهزة البصمة';
+    }
+    message += '<br><small>يمكنك إضافة الطالب الآن وسيتم إضافته للجهاز عند توفر الخدمة.</small>';
+  } else if (deviceData.availableCount === 0 && deviceData.totalDevices > 0) {
+    alertClass = 'alert-info';
+    iconName = 'info';
+    message = `لا توجد أجهزة بصمة متاحة حالياً من أصل ${deviceData.totalDevices} جهاز.<br><small>يمكنك إضافة الطالب الآن وسيتم إضافته للجهاز عند توفر الخدمة.</small>`;
+  } else if (deviceData.availableCount > 0) {
+    alertClass = 'alert-success';
+    iconName = 'check_circle';
+    message = `${deviceData.availableCount} من أصل ${deviceData.totalDevices} جهاز بصمة متاح حالياً.`;
+  }
+  
+  if (message) {
+    alertHTML = `
+      <div class="alert ${alertClass} d-flex align-items-center mb-3" role="alert">
+        <i class="material-symbols-rounded me-2">${iconName}</i>
+        <div>
+          <strong>${alertClass === 'alert-warning' ? 'تحذير:' : alertClass === 'alert-info' ? 'معلومة:' : 'متاح:'}</strong> 
+          ${message}
+        </div>
+      </div>
+    `;
+    
+    // Insert new alert before the select element
+    deviceSelectContainer.insertAdjacentHTML('afterbegin', alertHTML);
+  }
+}
+
+// Function to update device select dropdown
+async function updateDeviceSelect(deviceData) {
+  const deviceSelect = document.querySelector('select[name="deviceId"]');
+  if (!deviceSelect) return;
+  
+  // Store current selection
+  const currentValue = deviceSelect.value;
+  
+  // Clear existing options except the first one
+  deviceSelect.innerHTML = '<option value="">اختر جهاز البصمة (اختياري)</option>';
+  
+  // Add updated device options
+  if (deviceData.devices && deviceData.devices.length > 0) {
+    deviceData.devices.forEach(device => {
+      const option = document.createElement('option');
+      option.value = String(device.id);
+      option.setAttribute('data-device-ip', device.ip);
+      option.setAttribute('data-device-port', device.port);
+      option.setAttribute('data-device-status', device.status);
+      
+      let statusText = '';
+      if (device.status === 'listening') {
+        statusText = '- متاح ومستمع';
+      } else if (device.status === 'online') {
+        statusText = '- متاح';
+      } else if (device.status === 'offline') {
+        statusText = '- غير متصل';
+      } else if (device.status === 'error') {
+        statusText = '- خطأ في الاتصال';
+      } else {
+        statusText = device.enabled ? '- متاح' : '- غير متاح';
+      }
+      
+      option.textContent = `${device.name} (${device.ip}:${device.port}) ${statusText}`;
+      option.disabled = !device.enabled;
+      
+      deviceSelect.appendChild(option);
+    });
+    
+    // Restore previous selection if still available
+    if (currentValue) {
+      deviceSelect.value = currentValue;
+    }
+  } else {
+    const option = document.createElement('option');
+    option.value = '';
+    option.disabled = true;
+    option.textContent = 'لا توجد أجهزة متاحة';
+    deviceSelect.appendChild(option);
+  }
+}
+
+// Auto-refresh device status every 60 seconds (reduced from 30)
+setInterval(refreshDeviceStatus, 60000);
+
+// Expose refreshDeviceStatus to global scope for HTML button
+window.refreshDeviceStatus = refreshDeviceStatus;
 
 // Manual refresh function for group selection (can be called from console or button)
 window.refreshGroupSelection = function() {
