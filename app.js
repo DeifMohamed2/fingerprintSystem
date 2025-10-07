@@ -34,8 +34,8 @@ const dbURI ='mongodb+srv://deif:1qaz2wsx@3devway.aa4i6ga.mongodb.net/fingerprin
 mongoose
   .connect(dbURI)
   .then((result) => {
-    server.listen(8600);
-    console.log('connected to db and listening on port 8600');
+    server.listen(8721);
+    console.log('connected to db and listening on port 8721');
     // Schedule monthly job: 1st day of month at 00:10 AM
     try {
       schedule.scheduleJob('10 0 1 * *', async function() {
