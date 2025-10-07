@@ -14,7 +14,7 @@ const authMiddleware = async (req, res, next) => {
     const token = req.cookies.token;
     // console.log(token);
     if (!token) {
-      res.status(401).redirect('/');
+      return res.status(401).redirect('/');
     }
   
     try {
@@ -28,11 +28,11 @@ const authMiddleware = async (req, res, next) => {
           next();
         } else {
           res.clearCookie('token');
-          res.status(301).redirect('/');
+          return res.status(301).redirect('/');
         }
       });
     } catch (error) {
-      res.status(401).redirect('/');
+      return res.status(401).redirect('/');
     }
 }
 
@@ -50,6 +50,9 @@ router.get('/test-device', authMiddleware, employeeController.testDevice);
 
 // Get available devices
 router.get('/devices', authMiddleware, employeeController.getDevices);
+
+// Check device status
+router.get('/device-status', authMiddleware, employeeController.checkDeviceStatus);
 
 // Check student codes
 router.get('/check-student-codes', authMiddleware, employeeController.checkStudentCodes);
@@ -155,5 +158,10 @@ router.get('/connect-whatsapp', authMiddleware, employeeController.connectWhatsA
 router.post('/connect-whatsapp/start', authMiddleware, employeeController.connectWhatsApp_Start);
 router.get('/connect-whatsapp/qrcode', authMiddleware, employeeController.connectWhatsApp_QR);
 
+// Device Users Management
+router.get('/device-users', authMiddleware, employeeController.getDeviceUsers);
+router.get('/all-device-users', authMiddleware, employeeController.getAllDeviceUsers);
+router.delete('/device-users/:userId', authMiddleware, employeeController.deleteDeviceUser);
+router.get('/test-listener-connection', authMiddleware, employeeController.testListenerConnection);
 
 module.exports = router;

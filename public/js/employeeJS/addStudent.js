@@ -7,6 +7,57 @@ const studentsTableBody = document.getElementById('studentsTableBody');
 const searchStudentsInput = document.getElementById('searchStudents');
 const filterByGroupSelect = document.getElementById('filterByGroup');
 
+// Debug: Check if form element exists
+console.log('addStudentForm element:', addStudentForm);
+console.log('groupCards found:', groupCards.length);
+console.log('groupsInput element:', groupsInput);
+
+// Device status refresh functionality
+async function refreshDeviceStatus() {
+  try {
+    const response = await fetch('/employee/device-status');
+    const data = await response.json();
+    
+    if (data.success) {
+      // Reload the page to show updated device status
+      window.location.reload();
+    } else {
+      showToast('فشل في تحديث حالة الأجهزة', true);
+    }
+  } catch (error) {
+    console.error('Error refreshing device status:', error);
+    showToast('خطأ في تحديث حالة الأجهزة', true);
+  }
+}
+
+// Auto-refresh device status every 30 seconds
+setInterval(refreshDeviceStatus, 30000);
+
+// Manual refresh function for group selection (can be called from console or button)
+window.refreshGroupSelection = function() {
+  console.log('Manually refreshing group selection...');
+  setupGroupSelection();
+};
+
+// Auto-refresh group selection every 10 seconds to handle dynamic content
+setInterval(() => {
+  const groupCards = document.querySelectorAll('.group-card');
+  if (groupCards.length > 0) {
+    // Check if any cards don't have event listeners
+    let needsRefresh = false;
+    groupCards.forEach(card => {
+      if (!card.dataset.listenerAdded) {
+        needsRefresh = true;
+      }
+    });
+    
+    if (needsRefresh) {
+      console.log('Refreshing group selection due to new cards...');
+      setupGroupSelection();
+    }
+  }
+}, 10000);
+
 // Show loading overlay
 function showLoading() {
   const spinner = document.getElementById('loadingOverlay');
@@ -40,28 +91,62 @@ function showToast(message, isError = false) {
 // Group selection functionality
 let selectedGroups = [];
 
-// Multiple group selection (toggle on/off)
-groupCards.forEach(card => {
-  card.addEventListener('click', function() {
-    const groupId = this.dataset.groupId;
-    const groupName = this.querySelector('h6').textContent;
+// Function to setup group selection
+function setupGroupSelection() {
+  console.log('Setting up group selection...');
+  
+  // Re-query group cards
+  const groupCards = document.querySelectorAll('.group-card');
+  console.log('Found group cards:', groupCards.length);
+  
+  if (groupCards.length === 0) {
+    console.error('No group cards found!');
+    return;
+  }
+  
+  // Multiple group selection (toggle on/off)
+  groupCards.forEach((card, index) => {
+    console.log(`Setting up group card ${index}:`, card);
     
-    if (this.classList.contains('selected')) {
-      // Remove from selection
-      this.classList.remove('selected');
-      selectedGroups = selectedGroups.filter(id => id !== groupId);
-      showToast(`تم إلغاء اختيار المجموعة: ${groupName}`);
-    } else {
-      // Add to selection
-      this.classList.add('selected');
-      selectedGroups.push(groupId);
-      showToast(`تم اختيار المجموعة: ${groupName}`);
-    }
+    // Remove any existing event listeners
+    card.replaceWith(card.cloneNode(true));
+    const newCard = document.querySelectorAll('.group-card')[index];
     
-    // Update selected groups array
-    updateSelectedGroups();
+    newCard.addEventListener('click', function() {
+      const groupId = this.dataset.groupId;
+      const groupName = this.querySelector('h6')?.textContent || 'Unknown Group';
+      
+      console.log(`Group card clicked: ${groupName} (${groupId})`);
+      
+      if (this.classList.contains('selected')) {
+        // Remove from selection
+        this.classList.remove('selected');
+        selectedGroups = selectedGroups.filter(id => id !== groupId);
+        console.log(`Removed group ${groupName} (${groupId}) from selection. Current groups:`, selectedGroups);
+        showToast(`تم إلغاء اختيار المجموعة: ${groupName}`);
+      } else {
+        // Add to selection
+        this.classList.add('selected');
+        selectedGroups.push(groupId);
+        console.log(`Added group ${groupName} (${groupId}) to selection. Current groups:`, selectedGroups);
+        showToast(`تم اختيار المجموعة: ${groupName}`);
+      }
+      
+      // Update selected groups array
+      updateSelectedGroups();
+    });
+    
+    // Mark this card as having a listener
+    newCard.dataset.listenerAdded = 'true';
   });
-});
+}
+
+// Setup group selection when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', setupGroupSelection);
+} else {
+  setupGroupSelection();
+}
 
 // Function to update the groups input field
 function updateSelectedGroups() {
@@ -69,14 +154,24 @@ function updateSelectedGroups() {
 }
 
 // Form submission
-addStudentForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  
+if (addStudentForm) {
+  console.log('Adding event listener to form');
+  addStudentForm.addEventListener('submit', async (e) => {
+    console.log('Form submitted!');
+    e.preventDefault();
+    
   // Validate group selection
   if (selectedGroups.length === 0) {
-    showToast('يرجى اختيار مجموعة واحدة على الأقل للطالب', true);
+    console.log('No groups selected');
+    await Swal.fire({ 
+      icon: 'error', 
+      title: 'خطأ في البيانات', 
+      text: 'يرجى اختيار مجموعة واحدة على الأقل للطالب' 
+    });
     return;
   }
+  
+  console.log('Selected groups:', selectedGroups);
 
   // Basic client-side validation
   const nameVal = (document.getElementById('studentName')?.value || '').trim();
@@ -148,14 +243,14 @@ addStudentForm.addEventListener('submit', async (e) => {
                 </div>
                 <div style="text-align: right; margin-top: 20px;">
                   <p><strong>اسم الطالب:</strong> ${responseData.studentName}</p>
-                  <p><strong>المجموعة:</strong> ${responseData.groupName}</p>
+                  <p><strong>المجموعة:</strong> ${responseData.groups && responseData.groups.length > 0 ? responseData.groups.map(g => g.groupName || g).join(', ') : 'غير محدد'}</p>
                   ${responseData.deviceStatus && responseData.deviceStatus.success
-                    ? `<p class="text-success"><strong>✅ تم إضافة الطالب للجهاز بنجاح</strong></p>
+                    ? `<p class="text-success"><strong>تم إضافة الطالب للجهاز بنجاح</strong></p>
                         ${responseData.deviceStatus.data && responseData.deviceStatus.data.deviceInfo
                           ? `<p><strong>الجهاز:</strong> ${responseData.deviceStatus.data.deviceInfo.deviceName} (${responseData.deviceStatus.data.deviceInfo.deviceIp})</p>`
                           : ''
                         }`
-                    : `<p class="text-warning"><strong>⚠️ لم يتم إضافة الطالب للجهاز</strong></p>
+                    : `<p class="text-warning"><strong>لم يتم إضافة الطالب للجهاز</strong></p>
                         <small class="text-muted">${(responseData.deviceStatus && responseData.deviceStatus.error) ? responseData.deviceStatus.error : 'تحقق من تشغيل خدمة البصمة'}</small>`
                   }
                 </div>
@@ -178,18 +273,57 @@ addStudentForm.addEventListener('submit', async (e) => {
       loadStudents();
       
     } else {
-      const errMsg = (responseData && (responseData.message || responseData.error)) || 'حدث خطأ في إضافة الطالب';
-      await Swal.fire({ icon: 'error', title: 'فشل إضافة الطالب', text: errMsg });
+      // Enhanced error handling for server responses
+      let errMsg = 'حدث خطأ في إضافة الطالب';
+      let errorDetails = '';
+      
+      if (responseData) {
+        if (responseData.message) {
+          errMsg = responseData.message;
+        } else if (responseData.error) {
+          errMsg = responseData.error;
+        }
+        
+        // Add additional error details if available
+        if (responseData.deviceStatus && !responseData.deviceStatus.success) {
+          errorDetails = `<br><br><strong>تفاصيل خطأ الجهاز:</strong><br>${responseData.deviceStatus.error || 'غير محدد'}`;
+        }
+      }
+      
+      console.error('Server error:', responseData);
+      await Swal.fire({ 
+        icon: 'error', 
+        title: 'فشل إضافة الطالب', 
+        html: `<div dir="rtl">${errMsg}${errorDetails}</div>`
+      });
       showToast(errMsg, true);
     }
   } catch (error) {
     console.error('Error adding student:', error);
-    await Swal.fire({ icon: 'error', title: 'خطأ في الاتصال', text: 'حدث خطأ في الاتصال. حاول مرة أخري.' });
-    showToast('حدث خطأ في الاتصال', true);
+    
+    let errorMessage = 'حدث خطأ في الاتصال. حاول مرة أخري.';
+    let errorDetails = '';
+    
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      errorMessage = 'فشل في الاتصال بالخادم';
+      errorDetails = '<br><br>تأكد من أن الخادم يعمل بشكل صحيح.';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    await Swal.fire({ 
+      icon: 'error', 
+      title: 'خطأ في الاتصال', 
+      html: `<div dir="rtl">${errorMessage}${errorDetails}</div>`
+    });
+    showToast(errorMessage, true);
   } finally {
     hideLoading();
   }
-});
+  });
+} else {
+  console.error('addStudentForm element not found!');
+}
 
 // Load all students
 async function loadStudents() {
@@ -420,7 +554,7 @@ async function updateStudent(studentId, formData) {
 async function deleteStudent(studentId) {
   const result = await Swal.fire({
     title: 'تأكيد الحذف',
-    text: 'هل أنت متأكد من حذف هذا الطالب؟',
+    text: 'هل أنت متأكد من حذف هذا الطالب؟ سيتم حذفه أيضاً من جميع أجهزة البصمة.',
     icon: 'warning',
     showCancelButton: true,
     confirmButtonColor: '#d33',
@@ -431,13 +565,31 @@ async function deleteStudent(studentId) {
 
   if (result.isConfirmed) {
     try {
+      // First, get student data to find the student code
+      const studentResponse = await fetch(`/employee/get-student/${studentId}`);
+      const studentData = await studentResponse.json();
+      const student = studentData.student || studentData;
+      const studentCode = student.studentCode;
+
+      // Delete student from database
       const response = await fetch(`/employee/delete-student/${studentId}`, {
         method: 'DELETE'
       });
       
       if (response.ok) {
-        showToast('تم حذف الطالب بنجاح');
+        // If student has a code, try to delete from devices
+        if (studentCode) {
+          try {
+            await deleteUserFromAllDevices(studentCode);
+          } catch (deviceError) {
+            console.warn('Error deleting from devices:', deviceError);
+            // Don't fail the whole operation if device deletion fails
+          }
+        }
+        
+        showToast('تم حذف الطالب بنجاح من قاعدة البيانات والأجهزة');
         loadStudents(); // Reload the table
+        loadDeviceUsers(); // Reload device users table
       } else {
         const data = await response.json();
         showToast(data.message || 'حدث خطأ في حذف الطالب', true);
@@ -446,6 +598,29 @@ async function deleteStudent(studentId) {
       console.error('Error deleting student:', error);
       showToast('حدث خطأ في الاتصال', true);
     }
+  }
+}
+
+// Delete user from all devices by student code
+async function deleteUserFromAllDevices(studentCode) {
+  try {
+    const response = await fetch(`/employee/device-users/${studentCode}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      console.log(`Successfully deleted user ${studentCode} from devices`);
+    } else {
+      console.warn(`Failed to delete user ${studentCode} from devices:`, data.message);
+    }
+  } catch (error) {
+    console.error('Error deleting user from devices:', error);
+    throw error;
   }
 }
 
@@ -486,10 +661,227 @@ async function payMonthlyFee(studentId) {
   }
 }
 
+// Device Users Management Functions
+let deviceUsersData = [];
+
+// Load device users from all devices
+async function loadDeviceUsers() {
+  const loadingElement = document.getElementById('deviceUsersLoading');
+  const emptyElement = document.getElementById('deviceUsersEmpty');
+  const tableBody = document.getElementById('deviceUsersTableBody');
+  const table = document.getElementById('deviceUsersTable');
+  
+  try {
+    // Show loading
+    loadingElement.style.display = 'block';
+    emptyElement.style.display = 'none';
+    table.style.display = 'none';
+    
+    const response = await fetch('/employee/all-device-users');
+    const data = await response.json();
+    
+    if (data.success) {
+      deviceUsersData = data.data || [];
+      renderDeviceUsers(deviceUsersData);
+    } else {
+      showToast(data.message || 'فشل في تحميل مستخدمي الأجهزة', true);
+      showEmptyDeviceUsers();
+    }
+  } catch (error) {
+    console.error('Error loading device users:', error);
+    showToast('خطأ في الاتصال', true);
+    showEmptyDeviceUsers();
+  } finally {
+    loadingElement.style.display = 'none';
+  }
+}
+
+// Render device users in the table
+function renderDeviceUsers(users) {
+  const tableBody = document.getElementById('deviceUsersTableBody');
+  const emptyElement = document.getElementById('deviceUsersEmpty');
+  const table = document.getElementById('deviceUsersTable');
+  
+  if (!users || users.length === 0) {
+    showEmptyDeviceUsers();
+    return;
+  }
+  
+  tableBody.innerHTML = users.map(user => `
+    <tr>
+      <td class="text-center">${user.userId || user.uid || 'غير محدد'}</td>
+      <td class="text-center">${user.name || 'غير محدد'}</td>
+      <td class="text-center">${user.deviceName || 'غير محدد'}</td>
+      <td class="text-center">${user.deviceIp || 'غير محدد'}</td>
+      <td class="text-center">
+        <span class="badge ${getPrivilegeBadgeClass(user.privilege)}">
+          ${getPrivilegeText(user.privilege)}
+        </span>
+      </td>
+      <td class="text-center">
+        <span class="badge ${user.enabled ? 'bg-success' : 'bg-danger'}">
+          ${user.enabled ? 'مفعل' : 'معطل'}
+        </span>
+      </td>
+      <td class="text-center">
+        <button class="btn btn-sm btn-danger" onclick="deleteDeviceUser('${user.userId || user.uid}')" title="حذف المستخدم">
+          <i class="material-symbols-rounded">delete</i>
+        </button>
+      </td>
+    </tr>
+  `).join('');
+  
+  table.style.display = 'table';
+  emptyElement.style.display = 'none';
+}
+
+// Show empty state for device users
+function showEmptyDeviceUsers() {
+  const emptyElement = document.getElementById('deviceUsersEmpty');
+  const table = document.getElementById('deviceUsersTable');
+  
+  table.style.display = 'none';
+  emptyElement.style.display = 'block';
+}
+
+// Get privilege badge class
+function getPrivilegeBadgeClass(privilege) {
+  switch (privilege) {
+    case 0: return 'bg-primary'; // Admin
+    case 1: return 'bg-info';    // User
+    case 2: return 'bg-warning'; // Guest
+    default: return 'bg-secondary';
+  }
+}
+
+// Get privilege text
+function getPrivilegeText(privilege) {
+  switch (privilege) {
+    case 0: return 'مدير';
+    case 1: return 'مستخدم';
+    case 2: return 'ضيف';
+    default: return 'غير محدد';
+  }
+}
+
+// Delete device user
+async function deleteDeviceUser(userId) {
+  try {
+    console.log(`Attempting to delete user: ${userId}`);
+    
+    const result = await Swal.fire({
+      title: 'تأكيد الحذف',
+      text: `هل أنت متأكد من حذف المستخدم ${userId} من الجهاز؟`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'نعم، احذف',
+      cancelButtonText: 'إلغاء',
+      reverseButtons: true
+    });
+
+    if (result.isConfirmed) {
+      console.log(`User confirmed deletion of: ${userId}`);
+      
+      // Show loading
+      showToast('جاري حذف المستخدم...');
+      
+      const response = await fetch(`/employee/device-users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log(`Response status: ${response.status}`);
+      const responseText = await response.text();
+      console.log(`Response text: ${responseText}`);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError);
+        data = { success: false, message: 'Invalid response from server' };
+      }
+      
+      console.log(`Parsed data:`, data);
+      
+      if (response.ok && data.success) {
+        showToast('تم حذف المستخدم بنجاح');
+        // Reload the table after a short delay
+        setTimeout(() => {
+          loadDeviceUsers();
+        }, 1000);
+      } else {
+        const errorMsg = data.message || data.error || `HTTP ${response.status}: فشل في حذف المستخدم`;
+        console.error('Deletion failed:', errorMsg);
+        showToast(errorMsg, true);
+      }
+    }
+  } catch (error) {
+    console.error('Error deleting device user:', error);
+    showToast(`خطأ في الاتصال: ${error.message}`, true);
+  }
+}
+
+// Test listener connection
+async function testListenerConnection() {
+  try {
+    showToast('جاري اختبار الاتصال...');
+    
+    const response = await fetch('/employee/test-listener-connection');
+    const data = await response.json();
+    
+    if (data.success) {
+      showToast('الاتصال بخدمة البصمة يعمل بشكل صحيح');
+      console.log('Listener connection test successful:', data);
+    } else {
+      showToast(`فشل في الاتصال: ${data.message}`, true);
+      console.error('Listener connection test failed:', data);
+    }
+  } catch (error) {
+    showToast(`خطأ في اختبار الاتصال: ${error.message}`, true);
+    console.error('Error testing listener connection:', error);
+  }
+}
+
+// Filter device users by device and search
+function filterDeviceUsers() {
+  const deviceFilter = document.getElementById('deviceUsersFilter');
+  const searchInput = document.getElementById('searchDeviceUsers');
+  const selectedDeviceId = deviceFilter.value;
+  const searchTerm = (searchInput ? searchInput.value : '').toLowerCase();
+  
+  let filteredUsers = deviceUsersData;
+  
+  // Filter by device
+  if (selectedDeviceId) {
+    filteredUsers = filteredUsers.filter(user => 
+      user.deviceId === selectedDeviceId
+    );
+  }
+  
+  // Filter by search term (code or name)
+  if (searchTerm) {
+    filteredUsers = filteredUsers.filter(user => {
+      const userId = (user.userId || user.uid || '').toString().toLowerCase();
+      const userName = (user.name || '').toLowerCase();
+      return userId.includes(searchTerm) || userName.includes(searchTerm);
+    });
+  }
+  
+  renderDeviceUsers(filteredUsers);
+}
+
 // Initialize form
 document.addEventListener('DOMContentLoaded', function() {
   // Load students table
   loadStudents();
+  
+  // Load device users
+  loadDeviceUsers();
   
   // Add search and filter event listeners
   if (searchStudentsInput) {
@@ -498,6 +890,18 @@ document.addEventListener('DOMContentLoaded', function() {
   
   if (filterByGroupSelect) {
     filterByGroupSelect.addEventListener('change', filterStudents);
+  }
+  
+  // Add device users filter event listener
+  const deviceUsersFilter = document.getElementById('deviceUsersFilter');
+  if (deviceUsersFilter) {
+    deviceUsersFilter.addEventListener('change', filterDeviceUsers);
+  }
+  
+  // Add device users search event listener
+  const searchDeviceUsers = document.getElementById('searchDeviceUsers');
+  if (searchDeviceUsers) {
+    searchDeviceUsers.addEventListener('input', filterDeviceUsers);
   }
   
   // Add form validation

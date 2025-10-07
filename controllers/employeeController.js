@@ -51,7 +51,7 @@ const addUserToDevice = async (userId, userName, deviceId = null) => {
       },
     });
 
-    console.log('✅ Device response:', response.data);
+    console.log('Device response:', response.data);
 
     if (response.data && response.data.ok) {
       return { success: true, data: response.data };
@@ -62,7 +62,7 @@ const addUserToDevice = async (userId, userName, deviceId = null) => {
       };
     }
   } catch (error) {
-    console.error('❌ Error adding user to device:', error.message);
+    console.error('Error adding user to device:', error.message);
     if (error.code === 'ECONNREFUSED') {
       return {
         success: false,
@@ -84,30 +84,60 @@ const addUserToDevice = async (userId, userName, deviceId = null) => {
 // Helper function to get available devices
 const getAvailableDevices = async () => {
   try {
-    console.log('🔍 Fetching available devices...');
+    console.log('Fetching available devices...');
     const response = await axios.get(`${DEVICE_API_BASE}/devices`, {
       timeout: 5000,
     });
 
     if (response.data && response.data.ok) {
-      console.log('✅ Devices fetched successfully:', response.data.data);
-      return { success: true, data: response.data.data };
+      const devices = response.data.data || [];
+      const availableDevices = devices.filter(device => device.enabled && device.status !== 'offline');
+      
+      console.log('Devices fetched successfully:', availableDevices);
+      return { 
+        success: true, 
+        data: availableDevices,
+        totalDevices: devices.length,
+        availableCount: availableDevices.length,
+        allDevices: devices // Include all devices for reference
+      };
     } else {
       return {
         success: false,
         error: 'Device returned error: ' + JSON.stringify(response.data),
+        data: [],
+        totalDevices: 0,
+        availableCount: 0
       };
     }
   } catch (error) {
-    console.error('❌ Failed to fetch devices:', error.message);
+    console.error('Failed to fetch devices:', error.message);
     if (error.code === 'ECONNREFUSED') {
       return {
         success: false,
-        error:
-          'Cannot connect to fingerprint device. Please check if the device is running on port 5001.',
+        error: 'Cannot connect to fingerprint device service. Please check if the device service is running on port 5001.',
+        data: [],
+        totalDevices: 0,
+        availableCount: 0,
+        serviceDown: true
+      };
+    } else if (error.code === 'ETIMEDOUT') {
+      return {
+        success: false,
+        error: 'Device service timeout. The service may be overloaded or devices are not responding.',
+        data: [],
+        totalDevices: 0,
+        availableCount: 0,
+        timeout: true
       };
     } else {
-      return { success: false, error: error.message };
+      return { 
+        success: false, 
+        error: error.message,
+        data: [],
+        totalDevices: 0,
+        availableCount: 0
+      };
     }
   }
 };
@@ -115,7 +145,7 @@ const getAvailableDevices = async () => {
 // Helper function to test device connection
 const testDeviceConnection = async () => {
   try {
-    console.log('🔍 Testing device connection...');
+    console.log('Testing device connection...');
     // Use /devices to verify listener is up and devices are reachable
     const response = await axios.get(`${DEVICE_API_BASE}/devices`, {
       timeout: 5000,
@@ -123,7 +153,7 @@ const testDeviceConnection = async () => {
     if (response.data && response.data.ok) {
       const devices = response.data.data || [];
       console.log(
-        '✅ Devices endpoint reachable. Devices count:',
+        'Devices endpoint reachable. Devices count:',
         devices.length
       );
       return { success: true, data: { devices } };
@@ -133,7 +163,7 @@ const testDeviceConnection = async () => {
       error: 'Device returned error: ' + JSON.stringify(response.data),
     };
   } catch (error) {
-    console.error('❌ Device connection test failed:', error.message);
+    console.error('Device connection test failed:', error.message);
     if (error.code === 'ECONNREFUSED') {
       return {
         success: false,
@@ -343,12 +373,12 @@ const getDashboardStats = async (req, res) => {
       }
     };
     
-    console.log('✅ Dashboard stats response:', responseData);
+    console.log('Dashboard stats response:', responseData);
     
     res.json(responseData);
     
   } catch (error) {
-    console.error('❌ Error fetching dashboard stats:', error);
+    console.error('Error fetching dashboard stats:', error);
     res.status(500).json({
       success: false,
       message: 'حدث خطأ في جلب إحصائيات لوحة التحكم',
@@ -375,15 +405,27 @@ const getAddStudent = async (req, res) => {
       }
     );
 
-    // Get available devices
+    // Get available devices with enhanced error handling
     const devicesResult = await getAvailableDevices();
-    const availableDevices = devicesResult.success ? devicesResult.data : [];
+    
+    // Prepare device information for the template
+    const deviceInfo = {
+      availableDevices: devicesResult.success ? devicesResult.data : [],
+      totalDevices: devicesResult.totalDevices || 0,
+      availableCount: devicesResult.availableCount || 0,
+      serviceError: !devicesResult.success,
+      errorMessage: devicesResult.error || null,
+      serviceDown: devicesResult.serviceDown || false,
+      timeout: devicesResult.timeout || false,
+      allDevices: devicesResult.allDevices || []
+    };
 
     res.render('employee/addStudent', {
       title: 'Add Student',
       path: '/employee/add-student',
       allGroups,
-      availableDevices,
+      availableDevices: deviceInfo.availableDevices,
+      deviceInfo, // Pass complete device information
     });
   } catch (error) {
     console.error('Error loading add student page:', error);
@@ -459,6 +501,41 @@ async function sendQRCode(chatId, message, studentCode) {
     console.error('Error sending QR code:', error);
   }
 }
+
+// API endpoint to check device status
+const checkDeviceStatus = async (req, res) => {
+  try {
+    const devicesResult = await getAvailableDevices();
+    
+    res.json({
+      success: true,
+      data: {
+        devices: devicesResult.success ? devicesResult.data : [],
+        totalDevices: devicesResult.totalDevices || 0,
+        availableCount: devicesResult.availableCount || 0,
+        serviceError: !devicesResult.success,
+        errorMessage: devicesResult.error || null,
+        serviceDown: devicesResult.serviceDown || false,
+        timeout: devicesResult.timeout || false,
+        allDevices: devicesResult.allDevices || []
+      }
+    });
+  } catch (error) {
+    console.error('Error checking device status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check device status',
+      data: {
+        devices: [],
+        totalDevices: 0,
+        availableCount: 0,
+        serviceError: true,
+        errorMessage: error.message,
+        serviceDown: true
+      }
+    });
+  }
+};
 
 const addStudent = async (req, res) => {
   const {
@@ -568,13 +645,14 @@ const addStudent = async (req, res) => {
           }
         );
 
-        // Test device connection first
-        console.log('🔍 Testing device connection before adding user...');
+        // Test device connection and get device availability info
+        console.log('Testing device connection before adding user...');
         const deviceTest = await testDeviceConnection();
+        const deviceStatus = await getAvailableDevices();
 
         let deviceResult;
-        if (deviceTest.success) {
-          console.log('✅ Device connected, adding user...');
+        if (deviceTest.success && deviceStatus.success && deviceStatus.availableCount > 0) {
+          console.log('Device connected, adding user...');
           // Add student to fingerprint device (with deviceId if specified)
           deviceResult = await addUserToDevice(
             studentCode,
@@ -582,10 +660,26 @@ const addStudent = async (req, res) => {
             deviceId
           );
         } else {
-          console.log('❌ Device not connected, skipping user addition');
+          console.log('Device not connected, skipping user addition');
+          let errorMessage = 'Device connection failed';
+          
+          if (deviceStatus.serviceDown) {
+            errorMessage = 'Fingerprint device service is not running. Please start the service.';
+          } else if (deviceStatus.timeout) {
+            errorMessage = 'Device service timeout. Devices may be overloaded or not responding.';
+          } else if (deviceStatus.availableCount === 0) {
+            errorMessage = 'No fingerprint devices are currently available or enabled.';
+          } else if (deviceTest.error) {
+            errorMessage = `Device connection failed: ${deviceTest.error}`;
+          }
+          
           deviceResult = {
             success: false,
-            error: `Device connection failed: ${deviceTest.error}`,
+            error: errorMessage,
+            serviceDown: deviceStatus.serviceDown,
+            timeout: deviceStatus.timeout,
+            availableCount: deviceStatus.availableCount,
+            totalDevices: deviceStatus.totalDevices
           };
         }
 
@@ -1002,7 +1096,7 @@ const attendStudent = async (req, res) => {
 
     // Debug: Log the search query
     console.log(
-      '🔍 Searching for student with query:',
+      'Searching for student with query:',
       JSON.stringify(studentQuery)
     );
 
@@ -1012,7 +1106,7 @@ const attendStudent = async (req, res) => {
     );
 
     if (!student) {
-      console.log('❌ Student not found with search term:', SearchStudent);
+      console.log('Student not found with search term:', SearchStudent);
       // Let's also check what students exist in the database
       const allStudents = await Student.find(
         {},
@@ -1029,7 +1123,7 @@ const attendStudent = async (req, res) => {
       return res.status(404).json({ message: 'هذا الطالب غير موجود' });
     }
 
-    console.log('✅ Student found:', {
+    console.log('Student found:', {
       name: student.studentName,
       code: student.studentCode,
       phone: student.studentPhoneNumber,
@@ -1046,7 +1140,7 @@ const attendStudent = async (req, res) => {
     }
 
     // Check if student is enrolled in the selected group
-    console.log('🔍 Checking group enrollment:', {
+    console.log('Checking group enrollment:', {
       selectedGroupId: groupId,
       studentGroups: student.groups.map(g => ({ id: g._id || g, name: g.groupName }))
     });
@@ -1055,10 +1149,10 @@ const attendStudent = async (req, res) => {
       group._id.toString() === groupId || group.toString() === groupId
     );
     
-    console.log('✅ Is enrolled in group:', isEnrolledInGroup);
+    console.log('Is enrolled in group:', isEnrolledInGroup);
     
     if (!isEnrolledInGroup) {
-      console.log('❌ Student not enrolled in selected group:', groupId);
+      console.log('Student not enrolled in selected group:', groupId);
       console.log('Student groups:', student.groups.map(g => ({ id: g._id || g, name: g.groupName })));
       return res.status(403).json({ 
         message: 'هذا الطالب غير مسجل في المجموعة المختارة',
@@ -1184,11 +1278,11 @@ const getAttendedStudents = async (req, res) => {
       .populate('group', 'groupName');
 
     if (!attendance) {
-      console.log('❌ No attendance found for group:', groupId, 'on date:', getDateTime());
+      console.log('No attendance found for group:', groupId, 'on date:', getDateTime());
       return res.status(404).json({ message: 'لا يوجد حضور اليوم' });
     }
     
-    console.log('✅ Attendance found with', attendance.studentsPresent.length, 'students');
+    console.log('Attendance found with', attendance.studentsPresent.length, 'students');
 
     // Filter out null students (to prevent errors in calculations)
     const filteredStudents = attendance.studentsPresent.filter(
@@ -3063,11 +3157,237 @@ const connectWhatsApp_QR = async (req, res) => {
   }
 };
 
+// Device Users Management
+const getDeviceUsers = async (req, res) => {
+  try {
+    const deviceId = req.query.deviceId;
+    
+    if (!deviceId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Device ID is required' 
+      });
+    }
+
+    const response = await fetch(`http://localhost:5001/api/devices/${deviceId}/users`);
+    const data = await response.json();
+
+    if (data.ok) {
+      res.json({
+        success: true,
+        data: data.data,
+        message: 'Device users retrieved successfully'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: data.error || 'Failed to retrieve device users'
+      });
+    }
+  } catch (error) {
+    console.error('Error getting device users:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving device users'
+    });
+  }
+};
+
+const deleteDeviceUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    // deviceId is optional and can come from query params or body
+    const deviceId = req.body?.deviceId || req.query?.deviceId;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required'
+      });
+    }
+
+    console.log(`[DELETE] Attempting to delete user ${userId} from devices...`);
+
+    // Try to delete from all devices first
+    let deleteSuccess = false;
+    let errorMessages = [];
+    let deletedFromDevices = [];
+
+    try {
+      console.log(`[DELETE] Calling listener API: http://localhost:5001/api/users/${userId}`);
+      
+      const response = await fetch(`http://localhost:5001/api/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        timeout: 15000 // 15 second timeout
+      });
+      
+      console.log(`[DELETE] Response status: ${response.status}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[DELETE] HTTP Error ${response.status}: ${errorText}`);
+        errorMessages.push(`HTTP ${response.status}: ${errorText}`);
+      } else {
+        const data = await response.json();
+        console.log(`[DELETE] Response data:`, data);
+
+        if (data.ok) {
+          deleteSuccess = true;
+          deletedFromDevices = data.deleted_from || ['All devices'];
+          console.log(`[DELETE] Successfully deleted user ${userId} from devices:`, deletedFromDevices);
+        } else {
+          errorMessages.push(data.error || 'Failed to delete user from devices');
+          console.error(`[DELETE] Failed to delete user ${userId}:`, data.error);
+        }
+      }
+    } catch (fetchError) {
+      errorMessages.push(`Connection error: ${fetchError.message}`);
+      console.error('[DELETE] Error connecting to device service:', fetchError);
+    }
+
+    // If specific device is requested and general deletion failed, try specific device
+    if (deviceId && !deleteSuccess) {
+      try {
+        console.log(`[DELETE] Trying specific device ${deviceId}...`);
+        
+        const deviceResponse = await fetch(`http://localhost:5001/api/devices/${deviceId}/users/${userId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          timeout: 15000
+        });
+        
+        console.log(`[DELETE] Device response status: ${deviceResponse.status}`);
+        
+        if (deviceResponse.ok) {
+          const deviceData = await deviceResponse.json();
+          console.log(`[DELETE] Device response data:`, deviceData);
+          
+          if (deviceData.ok) {
+            deleteSuccess = true;
+            deletedFromDevices = [deviceData.device || `Device ${deviceId}`];
+            console.log(`[DELETE] Successfully deleted user ${userId} from device ${deviceId}`);
+          } else {
+            errorMessages.push(`Device ${deviceId} error: ${deviceData.error}`);
+          }
+        } else {
+          const errorText = await deviceResponse.text();
+          errorMessages.push(`Device ${deviceId} HTTP ${deviceResponse.status}: ${errorText}`);
+        }
+      } catch (deviceError) {
+        errorMessages.push(`Device ${deviceId} connection error: ${deviceError.message}`);
+        console.error(`[DELETE] Device ${deviceId} error:`, deviceError);
+      }
+    }
+
+    if (deleteSuccess) {
+      res.json({
+        success: true,
+        message: `User deleted successfully from: ${deletedFromDevices.join(', ')}`,
+        deletedFrom: deletedFromDevices
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: `Failed to delete user: ${errorMessages.join(', ')}`,
+        errors: errorMessages
+      });
+    }
+  } catch (error) {
+    console.error('[DELETE] Error deleting device user:', error);
+    res.status(500).json({
+      success: false,
+      message: `Error deleting user from device: ${error.message}`
+    });
+  }
+};
+
+const getAllDeviceUsers = async (req, res) => {
+  try {
+    console.log('[GET] Fetching all device users from listener...');
+    
+    const response = await fetch('http://localhost:5001/api/users', {
+      timeout: 10000
+    });
+    
+    console.log(`[GET] Response status: ${response.status}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[GET] HTTP Error ${response.status}: ${errorText}`);
+      return res.status(500).json({
+        success: false,
+        message: `Failed to connect to device service: HTTP ${response.status}`
+      });
+    }
+    
+    const data = await response.json();
+    console.log(`[GET] Response data:`, data);
+
+    if (data.ok) {
+      res.json({
+        success: true,
+        data: data.data,
+        message: 'All device users retrieved successfully'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: data.error || 'Failed to retrieve device users'
+      });
+    }
+  } catch (error) {
+    console.error('[GET] Error getting all device users:', error);
+    res.status(500).json({
+      success: false,
+      message: `Error retrieving device users: ${error.message}`
+    });
+  }
+};
+
+// Test connection to listener service
+const testListenerConnection = async (req, res) => {
+  try {
+    console.log('[TEST] Testing connection to listener service...');
+    
+    const response = await fetch('http://localhost:5001/api/devices', {
+      timeout: 5000
+    });
+    
+    console.log(`[TEST] Response status: ${response.status}`);
+    
+    if (response.ok) {
+      const data = await response.json();
+      res.json({
+        success: true,
+        message: 'Listener service is running',
+        data: data
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: `Listener service returned HTTP ${response.status}`
+      });
+    }
+  } catch (error) {
+    console.error('[TEST] Error testing listener connection:', error);
+    res.status(500).json({
+      success: false,
+      message: `Cannot connect to listener service: ${error.message}`
+    });
+  }
+};
+
 module.exports = {
   dashboard,
   getDashboardStats,
   testDevice,
   getDevices,
+  checkDeviceStatus,
   checkStudentCodes,
   // Billing functions removed
 
@@ -3125,4 +3445,10 @@ module.exports = {
   connectWhatsApp_Get,
   connectWhatsApp_Start,
   connectWhatsApp_QR,
+
+  // Device Users Management
+  getDeviceUsers,
+  deleteDeviceUser,
+  getAllDeviceUsers,
+  testListenerConnection,
 };

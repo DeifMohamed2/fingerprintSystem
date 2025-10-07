@@ -1,0 +1,45 @@
+2025-10-07T05:31:44: Initialized 2 default devices
+2025-10-07T05:31:44: Failed to auto-start listeners: 
+2025-10-07T05:31:44: 'charmap' codec can't encode character '\U0001f680' in position 0: character maps to <undefined>
+2025-10-07T05:31:44: [Device 1] Listener error: 'charmap' codec can't encode character '\U0001f449' in position 0: character maps to <undefined>
+2025-10-07T05:31:49: Initialized 2 default devices
+2025-10-07T05:31:49: [Device 1] Listener error:
+2025-10-07T05:31:49:  'charmap' codec can't encode character '\U0001f449' in position 0: character maps to <undefined>
+2025-10-07T05:31:49: Failed to auto-start listeners: 'charmap' codec can't encode character '\U0001f680' in position 0: character maps to <undefined>
+2025-10-07T05:31:53: Initialized 2 default devices
+2025-10-07T05:31:53: [Device 1] Listener error: 'charmap' codec can't encode character '\U0001f449' in position 0: character maps to <undefined>
+2025-10-07T05:31:53: Failed to auto-start listeners:
+2025-10-07T05:31:53:  'charmap' codec can't encode character '\U0001f680' in position 0: character maps to <undefined>
+2025-10-07T05:31:58: Initialized 2 default devices
+2025-10-07T05:31:58: [Device 1] Listener error:
+2025-10-07T05:31:58: Failed to auto-start listeners: 'charmap' codec can't encode character '\U0001f680' in position 0: character maps to <undefined>
+2025-10-07T05:31:58:  
+2025-10-07T05:31:58: 'charmap' codec can't encode character '\U0001f449' in position 0: character maps to <undefined>
+2025-10-07T05:31:58: 
+2025-10-07T05:32:03: Initialized 2 default devices
+2025-10-07T05:32:03: [Device 1] Listener error:
+2025-10-07T05:32:03: Failed to auto-start listeners: 'charmap' codec can't encode character '\U0001f680' in position 0: character maps to <undefined>
+2025-10-07T05:32:03:  
+2025-10-07T05:32:03: 'charmap' codec can't encode character '\U0001f449' in position 0: character maps to <undefined>
+2025-10-07T05:32:07: Initialized 2 default devices
+2025-10-07T05:32:07: [Device 1] Listener error:
+2025-10-07T05:32:07: Failed to auto-start listeners: 'charmap' codec can't encode character '\U0001f680' in position 0: character maps to <undefined>
+2025-10-07T05:32:07:  
+2025-10-07T05:32:07: 'charmap' codec can't encode character '\U0001f449' in position 0: character maps to <undefined>
+2025-10-07T05:32:12: Initialized 2 default devices
+2025-10-07T05:32:12: [Device 1] Listener error:
+2025-10-07T05:32:12: Failed to auto-start listeners: 'charmap' codec can't encode character '\U0001f680' in position 0: character maps to <undefined>
+2025-10-07T05:32:12:  'charmap' codec can't encode character '\U0001f449' in position 0: character maps to <undefined>
+2025-10-07T05:32:17: Initialized 2 default devices
+2025-10-07T05:32:17: [Device 1] Listener error:
+2025-10-07T05:32:17: Failed to auto-start listeners:  'charmap' codec can't encode character '\U0001f449' in position 0: character maps to <undefined>'charmap' codec can't encode character '\U0001f680' in position 0: character maps to <undefined>
+2025-10-07T05:32:17: 
+2025-10-07T05:32:23: Initialized 2 default devices
+2025-10-07T05:32:23: Failed to auto-start listeners:
+2025-10-07T05:32:23:  'charmap' codec can't encode character '\U0001f680' in position 0: character maps to <undefined>
+2025-10-07T05:32:23: [Device 1] Listener error:
+2025-10-07T05:32:23:  
+2025-10-07T05:32:28: Initialized 2 default devices
+2025-10-07T05:32:28: [Device 1] Listener error:
+2025-10-07T05:32:28: Failed to auto-start listeners:  'charmap' codec can't encode character '\U0001f449' in position 0: character maps to <undefined>'charmap' codec can't encode character '\U0001f680' in position 0: character maps to <undefined>
+2025-10-07T05:32:28: 

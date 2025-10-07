@@ -13,6 +13,99 @@ const invoiceTBody = document.querySelector('#invoiceTable tbody');
 const downloadExcelBtn = document.getElementById('downloadExcelBtn');
 const mockCheck = document.getElementById('mockCheck');
 
+// Device status checking functionality
+async function checkDeviceStatus() {
+  try {
+    const response = await fetch('/employee/device-status');
+    const data = await response.json();
+    
+    const statusBadge = document.getElementById('deviceStatusBadge');
+    const statusAlert = document.getElementById('deviceStatusAlert');
+    
+    if (data.success && data.data) {
+      const deviceInfo = data.data;
+      
+      if (deviceInfo.serviceError) {
+        // Service error
+        statusBadge.className = 'badge bg-danger';
+        statusBadge.innerHTML = '<i class="material-symbols-rounded me-1">error</i>خدمة الأجهزة غير متاحة';
+        
+        statusAlert.innerHTML = `
+          <div class="alert alert-danger d-flex align-items-center" role="alert">
+            <i class="material-symbols-rounded me-2">warning</i>
+            <div>
+              <strong>تحذير:</strong> 
+              ${deviceInfo.serviceDown ? 'خدمة أجهزة البصمة غير متاحة' : 
+                deviceInfo.timeout ? 'انتهت مهلة الاتصال بأجهزة البصمة' : 
+                deviceInfo.errorMessage || 'خطأ في الاتصال بأجهزة البصمة'}
+              <br>
+              <small>قد لا تعمل عملية الحضور بشكل صحيح.</small>
+            </div>
+          </div>
+        `;
+        statusAlert.style.display = 'block';
+        
+      } else if (deviceInfo.availableCount === 0) {
+        // No available devices
+        statusBadge.className = 'badge bg-warning';
+        statusBadge.innerHTML = '<i class="material-symbols-rounded me-1">fingerprint</i>لا توجد أجهزة متاحة';
+        
+        statusAlert.innerHTML = `
+          <div class="alert alert-warning d-flex align-items-center" role="alert">
+            <i class="material-symbols-rounded me-2">info</i>
+            <div>
+              <strong>معلومة:</strong> 
+              لا توجد أجهزة بصمة متاحة حالياً من أصل ${deviceInfo.totalDevices} جهاز.
+              <br>
+              <small>قد لا تعمل عملية الحضور بشكل صحيح.</small>
+            </div>
+          </div>
+        `;
+        statusAlert.style.display = 'block';
+        
+      } else {
+        // Devices available
+        statusBadge.className = 'badge bg-success';
+        statusBadge.innerHTML = `<i class="material-symbols-rounded me-1">fingerprint</i>${deviceInfo.availableCount}/${deviceInfo.totalDevices} أجهزة متاحة`;
+        
+        statusAlert.style.display = 'none';
+      }
+    } else {
+      // API error
+      statusBadge.className = 'badge bg-danger';
+      statusBadge.innerHTML = '<i class="material-symbols-rounded me-1">error</i>خطأ في فحص الأجهزة';
+      
+      statusAlert.innerHTML = `
+        <div class="alert alert-danger" role="alert">
+          <strong>خطأ:</strong> فشل في فحص حالة الأجهزة.
+        </div>
+      `;
+      statusAlert.style.display = 'block';
+    }
+  } catch (error) {
+    console.error('Error checking device status:', error);
+    
+    const statusBadge = document.getElementById('deviceStatusBadge');
+    const statusAlert = document.getElementById('deviceStatusAlert');
+    
+    statusBadge.className = 'badge bg-danger';
+    statusBadge.innerHTML = '<i class="material-symbols-rounded me-1">error</i>خطأ في الاتصال';
+    
+    statusAlert.innerHTML = `
+      <div class="alert alert-danger" role="alert">
+        <strong>خطأ:</strong> فشل في الاتصال بخدمة فحص الأجهزة.
+      </div>
+    `;
+    statusAlert.style.display = 'block';
+  }
+}
+
+// Check device status on page load and every 30 seconds
+document.addEventListener('DOMContentLoaded', function() {
+  checkDeviceStatus();
+  setInterval(checkDeviceStatus, 30000);
+});
+
 let temp3Student = 0;
 async function attendStudent(event) {
     event.preventDefault();

@@ -6,10 +6,18 @@ from datetime import datetime
 import socket
 import json
 from concurrent.futures import ThreadPoolExecutor
+import sys
+import io
 
 from flask import Flask, jsonify, request, render_template_string
 import os
 from flask_cors import CORS
+
+# Fix Unicode encoding issues on Windows
+if sys.platform == "win32":
+    # Set UTF-8 encoding for stdout/stderr on Windows
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # Default devices configuration
 DEFAULT_DEVICES = [
@@ -17,7 +25,7 @@ DEFAULT_DEVICES = [
     {"ip": "192.168.1.202", "port": 4370, "name": "Device 2", "enabled": True}
 ]
 
-NODE_API = "http://82.25.101.207:8721/api/attendance"
+NODE_API = "http://localhost:8721/api/attendance"
 FLASK_HOST = "0.0.0.0"
 FLASK_PORT = 5001
 AUTO_LISTEN = os.environ.get("AUTO_LISTEN", "1") not in ("0", "false", "False")
@@ -25,20 +33,76 @@ AUTO_LISTEN = os.environ.get("AUTO_LISTEN", "1") not in ("0", "false", "False")
 app = Flask(__name__)
 CORS(app)
 
+# Configure Flask for proper Unicode handling
+app.config['JSON_AS_ASCII'] = False
+app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
+
+# Add error handler for Unicode encoding issues
+@app.errorhandler(UnicodeEncodeError)
+def handle_unicode_error(e):
+    safe_print(f"Unicode encoding error: {e}")
+    return jsonify({"ok": False, "error": "Unicode encoding error occurred"}), 500
+
+# Add error handler for general encoding issues
+@app.errorhandler(Exception)
+def handle_general_error(e):
+    safe_print(f"General error: {e}")
+    return jsonify({"ok": False, "error": "An error occurred while processing the request"}), 500
+
 # Global device management
 devices = {}
 listen_threads = {}
 listen_stop_events = {}
 listen_status = {"running": False, "last_error": None, "devices": {}}
 
+# Safe print function that handles Unicode characters
+def safe_print(*args, **kwargs):
+    """Print function that safely handles Unicode characters"""
+    try:
+        # Convert all arguments to strings and handle Unicode
+        safe_args = []
+        for arg in args:
+            if isinstance(arg, str):
+                # Replace problematic Unicode characters with safe alternatives
+                safe_arg = arg.encode('ascii', 'replace').decode('ascii')
+                safe_args.append(safe_arg)
+            else:
+                safe_args.append(str(arg))
+        print(*safe_args, **kwargs)
+    except Exception as e:
+        # Fallback: print without Unicode characters
+        print("Print error:", str(e))
+        print(*[str(arg).encode('ascii', 'replace').decode('ascii') for arg in args], **kwargs)
+
+# Function to clean user input data
+def clean_user_input(text):
+    """Clean user input to prevent Unicode encoding issues"""
+    if not text:
+        return ""
+    
+    try:
+        # Convert to string if not already
+        text = str(text)
+        
+        # Replace problematic Unicode characters with safe alternatives
+        cleaned = text.encode('ascii', 'replace').decode('ascii')
+        
+        # Remove any remaining problematic characters (keep only ASCII)
+        cleaned = ''.join(char for char in cleaned if ord(char) < 128)
+        
+        return cleaned.strip()
+    except Exception as e:
+        safe_print(f"Error cleaning user input: {e}")
+        return ""
+
 
 def send_to_node(user_id, timestamp, device_ip=None):
     try:
         payload = {"userId": str(user_id), "time": timestamp, "deviceIp": device_ip}
         requests.post(NODE_API, json=payload, timeout=3)
-        print(f"✅ Sent {payload}")
+        safe_print(f"Sent {payload}")
     except Exception as error:
-        print("❌ Error sending:", error)
+        safe_print("Error sending:", error)
 
 
 def scan_network_for_devices(network_range="192.168.1", port=4370, timeout=2):
@@ -129,7 +193,7 @@ def connect_with_retry(device_ip, device_port, max_retries=3, retry_delay=5):
         try:
             if not validate_device_connectivity(device_ip, device_port):
                 if attempt < max_retries - 1:
-                    print(f"⚠️ Device {device_ip}:{device_port} not reachable, retrying in {retry_delay}s... (attempt {attempt + 1}/{max_retries})")
+                    print(f"Device {device_ip}:{device_port} not reachable, retrying in {retry_delay}s... (attempt {attempt + 1}/{max_retries})")
                     time.sleep(retry_delay)
                     continue
                 else:
@@ -140,7 +204,7 @@ def connect_with_retry(device_ip, device_port, max_retries=3, retry_delay=5):
             return conn
         except Exception as e:
             if attempt < max_retries - 1:
-                print(f"⚠️ Connection attempt {attempt + 1}/{max_retries} failed: {e}, retrying in {retry_delay}s...")
+                print(f"Connection attempt {attempt + 1}/{max_retries} failed: {e}, retrying in {retry_delay}s...")
                 time.sleep(retry_delay)
             else:
                 raise e
@@ -204,13 +268,13 @@ def try_set_user_variants(conn, uid, user_id, name, privilege, password, enabled
 
 
 def listen_loop_for_device(device_id):
-    """Listen loop for a specific device"""
+    """Listen loop for a specific device with enhanced reconnection"""
     global listen_status
     conn = None
     device = devices.get(device_id)
     
     if not device:
-        print(f"❌ Device {device_id} not found")
+        print(f"Device {device_id} not found")
         return
     
     # Initialize device entry in listen_status if it doesn't exist
@@ -219,69 +283,116 @@ def listen_loop_for_device(device_id):
             "running": False,
             "last_error": None,
             "name": device["name"],
-            "ip": device["ip"]
+            "ip": device["ip"],
+            "connection_attempts": 0,
+            "last_connection_time": None,
+            "reconnection_count": 0
         }
     
+    # Enhanced reconnection parameters
+    max_reconnection_attempts = 10
+    base_reconnect_delay = 5  # seconds
+    max_reconnect_delay = 60  # seconds
+    connection_attempts = 0
+    
     try:
-        print(f"👉 Starting attendance listener for {device['name']} ({device['ip']})...")
+        safe_print(f"Starting attendance listener for {device['name']} ({device['ip']})...")
         
-        # Connect with retry mechanism
-        conn = connect_with_retry(device["ip"], device["port"])
-        print(f"✅ Connected to {device['name']} for listening")
-        
-        device["status"] = "listening"
-        listen_status["devices"][device_id].update({
-            "running": True,
-            "last_error": None
-        })
-
         while not listen_stop_events.get(device_id, threading.Event()).is_set():
             try:
+                # Attempt connection with progressive backoff
+                if conn is None or not device.get("connected", False):
+                    connection_attempts += 1
+                    listen_status["devices"][device_id]["connection_attempts"] = connection_attempts
+                    
+                    safe_print(f"[{device['name']}] Connection attempt {connection_attempts}...")
+                    conn = connect_with_retry(device["ip"], device["port"], max_retries=3, retry_delay=3)
+                    
+                    if conn:
+                        device["status"] = "listening"
+                        device["connected"] = True
+                        listen_status["devices"][device_id].update({
+                            "running": True,
+                            "last_error": None,
+                            "last_connection_time": datetime.now().isoformat(),
+                            "reconnection_count": listen_status["devices"][device_id].get("reconnection_count", 0) + 1
+                        })
+                        connection_attempts = 0  # Reset on successful connection
+                        safe_print(f"Connected to {device['name']} for listening")
+                
+                # Main listening loop
                 attendances = conn.get_attendance()
                 if attendances:
                     for att in attendances:
                         user_id = att.user_id
                         timestamp = att.timestamp.strftime("%Y-%m-%d %H:%M:%S")
-                        print(f"📥 [{device['name']}] Attendance: {user_id} at {timestamp}")
+                        safe_print(f"[{device['name']}] Attendance: {user_id} at {timestamp}")
                         send_to_node(user_id, timestamp, device["ip"])
                     # Clear attendance logs to prevent duplicates
-                    conn.clear_attendance()
+                    try:
+                        conn.clear_attendance()
+                    except Exception as clear_error:
+                        safe_print(f"[{device['name']}] Failed to clear attendance: {clear_error}")
+                
+                # Short sleep between attendance checks
+                time.sleep(1)
+                
             except Exception as inner_error:
+                device["connected"] = False
+                device["status"] = "error"
+                
                 if device_id in listen_status["devices"]:
                     listen_status["devices"][device_id]["last_error"] = str(inner_error)
-                print(f"❌ [{device['name']}] Listener inner error:", inner_error)
                 
-                # If connection is lost, try to reconnect
-                if "can't reach device" in str(inner_error).lower() or "network" in str(inner_error).lower():
-                    print(f"🔄 [{device['name']}] Attempting to reconnect...")
+                safe_print(f"[{device['name']}] Connection error:", inner_error)
+                
+                # Determine if we should attempt reconnection
+                should_reconnect = (
+                    "can't reach device" in str(inner_error).lower() or
+                    "network" in str(inner_error).lower() or
+                    "connection" in str(inner_error).lower() or
+                    "timeout" in str(inner_error).lower()
+                )
+                
+                if should_reconnect and connection_attempts < max_reconnection_attempts:
+                    # Progressive backoff for reconnection
+                    reconnect_delay = min(base_reconnect_delay * (2 ** min(connection_attempts, 4)), max_reconnect_delay)
+                    
+                    safe_print(f"[{device['name']}] Attempting reconnection in {reconnect_delay}s... (attempt {connection_attempts + 1}/{max_reconnection_attempts})")
+                    
                     try:
                         if conn:
                             conn.disconnect()
-                        conn = connect_with_retry(device["ip"], device["port"])
-                        print(f"✅ [{device['name']}] Reconnected successfully")
-                        if device_id in listen_status["devices"]:
-                            listen_status["devices"][device_id]["last_error"] = None
-                    except Exception as reconnect_error:
-                        print(f"❌ [{device['name']}] Reconnection failed:", reconnect_error)
-                        if device_id in listen_status["devices"]:
-                            listen_status["devices"][device_id]["last_error"] = f"Reconnection failed: {str(reconnect_error)}"
-                        # Wait longer before next attempt
-                        time.sleep(10)
-                        continue
-            time.sleep(2)
+                    except Exception:
+                        pass
+                    
+                    # Wait before reconnection attempt
+                    time.sleep(reconnect_delay)
+                    continue
+                elif connection_attempts >= max_reconnection_attempts:
+                    safe_print(f"[{device['name']}] Max reconnection attempts reached. Stopping listener.")
+                    break
+                else:
+                    # For non-network errors, wait and retry
+                    safe_print(f"[{device['name']}] Waiting 10s before retry...")
+                    time.sleep(10)
+                    
     except Exception as error:
+        device["status"] = "error"
+        device["connected"] = False
         if device_id in listen_status["devices"]:
             listen_status["devices"][device_id]["last_error"] = str(error)
-        device["status"] = "error"
-        print(f"❌ [{device['name']}] Listener error:", error)
+        safe_print(f"[{device['name']}] Critical listener error:", error)
     finally:
         device["status"] = "offline"
+        device["connected"] = False
         if device_id in listen_status["devices"]:
             listen_status["devices"][device_id]["running"] = False
+        
         try:
             if conn:
                 conn.disconnect()
-                print(f"🔌 Disconnected {device['name']} listener connection")
+                safe_print(f"Disconnected {device['name']} listener connection")
         except Exception:
             pass
 
@@ -314,7 +425,7 @@ def start_all_listeners():
             )
             thread.start()
             listen_threads[device_id] = thread
-            print(f"🚀 Started listener thread for {device['name']}")
+            safe_print(f"Started listener thread for {device['name']}")
 
 
 def stop_all_listeners():
@@ -332,7 +443,7 @@ def stop_all_listeners():
     listen_status["running"] = False
     listen_status["devices"] = {}
     listen_threads.clear()
-    print("🛑 Stopped all listeners")
+    safe_print("Stopped all listeners")
 
 
 # ============= Flask Control API =============
@@ -378,15 +489,15 @@ def web_interface():
     <body>
         <div class="container">
             <div class="header">
-                <h1>🔍 Fingerprint Device Manager</h1>
+                <h1> Fingerprint Device Manager</h1>
                 <p>Manage and monitor multiple fingerprint devices</p>
             </div>
 
             <div class="section">
-                <h3>🔍 Device Discovery</h3>
+                <h3> Device Discovery</h3>
                 <div class="controls">
                     <input type="text" id="networkRange" placeholder="Network range (e.g., 192.168.1)" value="192.168.1">
-                    <button class="btn-info" onclick="scanDevices()">🔍 Scan Network</button>
+                    <button class="btn-info" onclick="scanDevices()"> Scan Network</button>
                 </div>
                 <div id="scanResults" class="scan-results" style="display: none;">
                     <div class="loading">Scanning network...</div>
@@ -394,11 +505,11 @@ def web_interface():
             </div>
 
             <div class="section">
-                <h3>📱 Configured Devices</h3>
+                <h3> Configured Devices</h3>
                 <div class="controls">
-                    <button class="btn-success" onclick="startAllListeners()">▶️ Start All Listeners</button>
-                    <button class="btn-danger" onclick="stopAllListeners()">⏹️ Stop All Listeners</button>
-                    <button class="btn-primary" onclick="refreshDevices()">🔄 Refresh Status</button>
+                    <button class="btn-success" onclick="startAllListeners()"> Start All Listeners</button>
+                    <button class="btn-danger" onclick="stopAllListeners()"> Stop All Listeners</button>
+                    <button class="btn-primary" onclick="refreshDevices()"> Refresh Status</button>
                 </div>
                 <div id="devicesContainer" class="device-grid">
                     <div class="loading">Loading devices...</div>
@@ -406,7 +517,7 @@ def web_interface():
             </div>
 
             <div class="section">
-                <h3>📊 System Status</h3>
+                <h3> System Status</h3>
                 <div id="systemStatus">
                     <div class="loading">Loading status...</div>
                 </div>
@@ -509,10 +620,10 @@ def web_interface():
                         <p><strong>Status:</strong> <span class="status ${device.status}">${device.status}</span></p>
                         <p><strong>Enabled:</strong> ${device.enabled ? 'Yes' : 'No'}</p>
                         <div style="margin-top: 10px;">
-                            <button class="btn-primary" onclick="getDeviceInfo('${device.id}')">ℹ️ Info</button>
+                            <button class="btn-primary" onclick="getDeviceInfo('${device.id}')"> Info</button>
                             <button class="btn-info" onclick="getDeviceUsers('${device.id}')">👥 Users</button>
                             <button class="btn-warning" onclick="toggleDevice('${device.id}')">${device.enabled ? 'Disable' : 'Enable'}</button>
-                            <button class="btn-danger" onclick="deleteDevice('${device.id}')">🗑️ Delete</button>
+                            <button class="btn-danger" onclick="deleteDevice('${device.id}')"> Delete</button>
                         </div>
                     </div>
                 `).join('');
@@ -608,7 +719,7 @@ def web_interface():
                     const response = await fetch(`/api/devices/${deviceId}/info`);
                     const data = await response.json();
                     if (data.ok) {
-                        alert(`Device Info:\\nPlatform: ${data.data.platform}\\nFirmware: ${data.data.firmwareVersion}\\nSerial: ${data.data.serialNumber}`);
+                        alert(`Device Info:Platform: ${data.data.platform}Firmware: ${data.data.firmwareVersion}Serial: ${data.data.serialNumber}`);
                     } else {
                         alert(`Error: ${data.error}`);
                     }
@@ -624,7 +735,7 @@ def web_interface():
                     if (data.ok) {
                         const users = data.data;
                         if (users.length > 0) {
-                            alert(`Users (${users.length}):\\n${users.map(u => `${u.userId} - ${u.name}`).join('\\n')}`);
+                            alert(`Users (${users.length}):${users.map(u => `${u.userId} - ${u.name}`).join('\\n')}`);
                         } else {
                             alert('No users found on this device.');
                         }
@@ -808,25 +919,26 @@ def api_set_user():
     try:
         # Check if specific device is requested
         device_id = body.get("deviceId")
-        print(f"🔍 Received device_id: {device_id} (type: {type(device_id)})")
-        print(f"🔍 Available devices: {list(devices.keys())}")
+        safe_print(f"Received device_id: {device_id} (type: {type(device_id)})")
+        safe_print(f" Available devices: {list(devices.keys())}")
         
         if device_id and str(device_id).strip() != '' and str(device_id) in devices:
             # Add user to specific device
             conn, device = connect_to_device(str(device_id))
-            print(f"🎯 Adding user to specific device: {device['name']} ({device['ip']}) - Device ID: {device_id}")
+            safe_print(f"Adding user to specific device: {device['name']} ({device['ip']}) - Device ID: {device_id}")
         else:
             # Use default connection (first available device)
-            print(f"🏠 Using default device (first enabled). Reason: device_id='{device_id}', available={list(devices.keys())}")
+            safe_print(f" Using default device (first enabled). Reason: device_id='{device_id}', available={list(devices.keys())}")
             conn = connect_once()
             device = None
         
-        desired_user_id = str(body.get("userId")) if body.get("userId") is not None else ""
-        desired_name = body.get("name", "").strip()
+        desired_user_id = clean_user_input(body.get("userId")) if body.get("userId") is not None else ""
+        desired_name = clean_user_input(body.get("name", ""))
+        
         if len(desired_name) > 24:
             desired_name = desired_name[:24]
         desired_priv = const.USER_DEFAULT if body.get("privilege") is None else int(body.get("privilege"))
-        desired_pass = str(body.get("password")) if body.get("password") else None
+        desired_pass = clean_user_input(body.get("password")) if body.get("password") else None
         desired_enabled = bool(body.get("enabled", True))
 
         users = conn.get_users() or []
@@ -884,35 +996,265 @@ def api_set_user():
 
 @app.delete("/api/users/<user_id>")
 def api_delete_user(user_id):
+    """Delete user from all devices"""
     try:
-        conn = connect_once()
         target = str(user_id)
-        # First attempt: delete by user_id directly
-        try:
-            conn.delete_user(target)
-        except Exception:
-            # Fallback: find matching user and delete by its underlying uid or user_id
-            users = conn.get_users() or []
-            matched = None
-            for u in users:
-                if str(getattr(u, "user_id", "")) == target or str(getattr(u, "name", "")) == target:
-                    matched = u
-                    break
-            if matched is None:
-                conn.disconnect()
-                return jsonify({"ok": False, "error": f"User '{target}' not found"}), 404
-            # Try by uid first if available, then by user_id
+        safe_print(f"[DELETE] Starting deletion of user: {target}")
+        deleted_from_devices = []
+        failed_devices = []
+        
+        # Try to delete from all enabled devices
+        for device_id, device in devices.items():
+            if not device["enabled"]:
+                safe_print(f"[DELETE] Skipping disabled device: {device['name']}")
+                continue
+                
+            safe_print(f"[DELETE] Processing device: {device['name']} ({device['ip']})")
+            
             try:
-                if hasattr(matched, "uid"):
-                    conn.delete_user(int(getattr(matched, "uid")))
-                else:
-                    conn.delete_user(str(getattr(matched, "user_id")))
-            except Exception as del_error:
+                conn, _ = connect_to_device(device_id)
+                safe_print(f"[DELETE] Connected to {device['name']}, attempting to delete user {target}")
+                
+                # Disable device while performing operations
+                try:
+                    conn.disable_device()
+                    safe_print(f"[DELETE] Device {device['name']} disabled for deletion")
+                except Exception as disable_error:
+                    safe_print(f"[DELETE] Warning: Could not disable device {device['name']}: {disable_error}")
+                
+                # Get all users first to find the correct uid and user_id
+                users = conn.get_users() or []
+                safe_print(f"[DELETE] Found {len(users)} users on {device['name']}")
+                
+                matched = None
+                for u in users:
+                    user_id_attr = str(getattr(u, "user_id", ""))
+                    name_attr = str(getattr(u, "name", ""))
+                    uid_attr = str(getattr(u, "uid", ""))
+                    
+                    safe_print(f"[DELETE] Checking user: user_id='{user_id_attr}', name='{name_attr}', uid='{uid_attr}'")
+                    
+                    if user_id_attr == target or name_attr == target or uid_attr == target:
+                        matched = u
+                        safe_print(f"[DELETE] Found matching user: {matched}")
+                        break
+                
+                if matched is None:
+                    safe_print(f"[DELETE] User '{target}' not found on {device['name']}")
+                    failed_devices.append(f"{device['name']}: User not found")
+                    # Re-enable device
+                    try:
+                        conn.enable_device()
+                    except Exception:
+                        pass
+                    continue
+                
+                # Try deletion with proper zk library parameters
+                deletion_success = False
+                
+                # Method 1: Try with both uid and user_id
+                try:
+                    uid_to_delete = int(getattr(matched, "uid", 0))
+                    user_id_to_delete = str(getattr(matched, "user_id", ""))
+                    
+                    safe_print(f"[DELETE] Trying deletion with uid={uid_to_delete}, user_id='{user_id_to_delete}'")
+                    conn.delete_user(uid=uid_to_delete, user_id=user_id_to_delete)
+                    deletion_success = True
+                    safe_print(f"[DELETE] SUCCESS: Deletion with uid and user_id from {device['name']}")
+                except Exception as method1_error:
+                    safe_print(f"[DELETE] Method 1 failed: {method1_error}")
+                    
+                    # Method 2: Try with uid only
+                    try:
+                        uid_to_delete = int(getattr(matched, "uid", 0))
+                        safe_print(f"[DELETE] Trying deletion with uid only: {uid_to_delete}")
+                        conn.delete_user(uid=uid_to_delete)
+                        deletion_success = True
+                        safe_print(f"[DELETE] SUCCESS: Deletion with uid only from {device['name']}")
+                    except Exception as method2_error:
+                        safe_print(f"[DELETE] Method 2 failed: {method2_error}")
+                        
+                        # Method 3: Try with user_id only
+                        try:
+                            user_id_to_delete = str(getattr(matched, "user_id", ""))
+                            safe_print(f"[DELETE] Trying deletion with user_id only: '{user_id_to_delete}'")
+                            conn.delete_user(user_id=user_id_to_delete)
+                            deletion_success = True
+                            safe_print(f"[DELETE] SUCCESS: Deletion with user_id only from {device['name']}")
+                        except Exception as method3_error:
+                            safe_print(f"[DELETE] Method 3 failed: {method3_error}")
+                            
+                            # Method 4: Try legacy method (string parameter)
+                            try:
+                                safe_print(f"[DELETE] Trying legacy deletion with string: '{target}'")
+                                conn.delete_user(target)
+                                deletion_success = True
+                                safe_print(f"[DELETE] SUCCESS: Legacy deletion from {device['name']}")
+                            except Exception as method4_error:
+                                safe_print(f"[DELETE] All deletion methods failed: {method4_error}")
+                                failed_devices.append(f"{device['name']}: All deletion methods failed")
+                
+                if deletion_success:
+                    deleted_from_devices.append(device['name'])
+                    safe_print(f"[DELETE] SUCCESS: User {target} deleted from {device['name']}")
+                
+                # Re-enable device
+                try:
+                    conn.enable_device()
+                    safe_print(f"[DELETE] Device {device['name']} re-enabled")
+                except Exception as enable_error:
+                    safe_print(f"[DELETE] Warning: Could not re-enable device {device['name']}: {enable_error}")
+                
                 conn.disconnect()
-                return jsonify({"ok": False, "error": f"delete_user failed: {del_error}"}), 500
-        conn.disconnect()
-        return jsonify({"ok": True})
+                safe_print(f"[DELETE] Disconnected from {device['name']}")
+                
+            except Exception as device_error:
+                safe_print(f"[DELETE] Error connecting to {device['name']}: {device_error}")
+                failed_devices.append(f"{device['name']}: {device_error}")
+                continue
+        
+        safe_print(f"[DELETE] Final results - Deleted from: {deleted_from_devices}, Failed: {failed_devices}")
+        
+        if deleted_from_devices:
+            return jsonify({
+                "ok": True, 
+                "message": f"User deleted from devices: {', '.join(deleted_from_devices)}",
+                "deleted_from": deleted_from_devices,
+                "failed_devices": failed_devices
+            })
+        else:
+            return jsonify({
+                "ok": False, 
+                "error": f"User '{target}' not found on any device",
+                "failed_devices": failed_devices
+            }), 404
+            
     except Exception as error:
+        safe_print(f"[DELETE] Error in api_delete_user: {error}")
+        return jsonify({"ok": False, "error": str(error)}), 500
+
+
+@app.delete("/api/devices/<device_id>/users/<user_id>")
+def api_delete_user_from_device(device_id, user_id):
+    """Delete user from specific device"""
+    try:
+        if device_id not in devices:
+            return jsonify({"ok": False, "error": "Device not found"}), 404
+        
+        device = devices[device_id]
+        if not device["enabled"]:
+            return jsonify({"ok": False, "error": "Device is disabled"}), 400
+        
+        conn, _ = connect_to_device(device_id)
+        target = str(user_id)
+        
+        safe_print(f"[DELETE] Attempting to delete user {target} from {device['name']} ({device['ip']})")
+        
+        # Disable device while performing operations
+        try:
+            conn.disable_device()
+            safe_print(f"[DELETE] Device {device['name']} disabled for deletion")
+        except Exception as disable_error:
+            safe_print(f"[DELETE] Warning: Could not disable device {device['name']}: {disable_error}")
+        
+        # Get all users first to find the correct uid and user_id
+        users = conn.get_users() or []
+        safe_print(f"[DELETE] Found {len(users)} users on {device['name']}")
+        
+        matched = None
+        for u in users:
+            user_id_attr = str(getattr(u, "user_id", ""))
+            name_attr = str(getattr(u, "name", ""))
+            uid_attr = str(getattr(u, "uid", ""))
+            
+            safe_print(f"[DELETE] Checking user: user_id='{user_id_attr}', name='{name_attr}', uid='{uid_attr}'")
+            
+            if user_id_attr == target or name_attr == target or uid_attr == target:
+                matched = u
+                safe_print(f"[DELETE] Found matching user: {matched}")
+                break
+        
+        if matched is None:
+            safe_print(f"[DELETE] User '{target}' not found on {device['name']}")
+            # Re-enable device
+            try:
+                conn.enable_device()
+            except Exception:
+                pass
+            conn.disconnect()
+            return jsonify({"ok": False, "error": f"User '{target}' not found on {device['name']}"}), 404
+        
+        # Try deletion with proper zk library parameters
+        deletion_success = False
+        
+        # Method 1: Try with both uid and user_id
+        try:
+            uid_to_delete = int(getattr(matched, "uid", 0))
+            user_id_to_delete = str(getattr(matched, "user_id", ""))
+            
+            safe_print(f"[DELETE] Trying deletion with uid={uid_to_delete}, user_id='{user_id_to_delete}'")
+            conn.delete_user(uid=uid_to_delete, user_id=user_id_to_delete)
+            deletion_success = True
+            safe_print(f"[DELETE] SUCCESS: Deletion with uid and user_id from {device['name']}")
+        except Exception as method1_error:
+            safe_print(f"[DELETE] Method 1 failed: {method1_error}")
+            
+            # Method 2: Try with uid only
+            try:
+                uid_to_delete = int(getattr(matched, "uid", 0))
+                safe_print(f"[DELETE] Trying deletion with uid only: {uid_to_delete}")
+                conn.delete_user(uid=uid_to_delete)
+                deletion_success = True
+                safe_print(f"[DELETE] SUCCESS: Deletion with uid only from {device['name']}")
+            except Exception as method2_error:
+                safe_print(f"[DELETE] Method 2 failed: {method2_error}")
+                
+                # Method 3: Try with user_id only
+                try:
+                    user_id_to_delete = str(getattr(matched, "user_id", ""))
+                    safe_print(f"[DELETE] Trying deletion with user_id only: '{user_id_to_delete}'")
+                    conn.delete_user(user_id=user_id_to_delete)
+                    deletion_success = True
+                    safe_print(f"[DELETE] SUCCESS: Deletion with user_id only from {device['name']}")
+                except Exception as method3_error:
+                    safe_print(f"[DELETE] Method 3 failed: {method3_error}")
+                    
+                    # Method 4: Try legacy method (string parameter)
+                    try:
+                        safe_print(f"[DELETE] Trying legacy deletion with string: '{target}'")
+                        conn.delete_user(target)
+                        deletion_success = True
+                        safe_print(f"[DELETE] SUCCESS: Legacy deletion from {device['name']}")
+                    except Exception as method4_error:
+                        safe_print(f"[DELETE] All deletion methods failed: {method4_error}")
+                        # Re-enable device
+                        try:
+                            conn.enable_device()
+                        except Exception:
+                            pass
+                        conn.disconnect()
+                        return jsonify({"ok": False, "error": f"All deletion methods failed: {method4_error}"}), 500
+        
+        # Re-enable device
+        try:
+            conn.enable_device()
+            safe_print(f"[DELETE] Device {device['name']} re-enabled")
+        except Exception as enable_error:
+            safe_print(f"[DELETE] Warning: Could not re-enable device {device['name']}: {enable_error}")
+        
+        conn.disconnect()
+        
+        if deletion_success:
+            return jsonify({
+                "ok": True, 
+                "message": f"User deleted from {device['name']}",
+                "device": device['name']
+            })
+        else:
+            return jsonify({"ok": False, "error": f"Failed to delete user from {device['name']}"}), 500
+        
+    except Exception as error:
+        safe_print(f"Error in api_delete_user_from_device: {error}")
         return jsonify({"ok": False, "error": str(error)}), 500
 
 
@@ -974,23 +1316,23 @@ def api_listen_status():
 if __name__ == "__main__":
     # Initialize default devices
     initialize_devices()
-    print(f"🔧 Initialized {len(devices)} default devices")
+    safe_print(f"Initialized {len(devices)} default devices")
     
     if AUTO_LISTEN:
         try:
             start_all_listeners()
-            print("▶️ Auto-started attendance listeners for all enabled devices")
+            safe_print("Auto-started attendance listeners for all enabled devices")
         except Exception as _e:
-            print("⚠️ Failed to auto-start listeners:", _e)
+            safe_print("Failed to auto-start listeners:", _e)
     
-    print(f"🚀 Flask API running on http://{FLASK_HOST}:{FLASK_PORT}")
-    print(f"🌐 Web Interface: http://{FLASK_HOST}:{FLASK_PORT}")
-    print(f"📱 API Endpoints:")
-    print(f"   - GET  /api/devices - List all devices")
-    print(f"   - POST /api/devices - Add new device")
-    print(f"   - GET  /api/scan - Scan network for devices")
-    print(f"   - POST /api/listen/start - Start all listeners")
-    print(f"   - POST /api/listen/stop - Stop all listeners")
-    print(f"   - GET  /api/listen/status - Get listening status")
+    safe_print(f"Flask API running on http://{FLASK_HOST}:{FLASK_PORT}")
+    safe_print(f"Web Interface: http://{FLASK_HOST}:{FLASK_PORT}")
+    safe_print(f"API Endpoints:")
+    safe_print(f"   - GET  /api/devices - List all devices")
+    safe_print(f"   - POST /api/devices - Add new device")
+    safe_print(f"   - GET  /api/scan - Scan network for devices")
+    safe_print(f"   - POST /api/listen/start - Start all listeners")
+    safe_print(f"   - POST /api/listen/stop - Stop all listeners")
+    safe_print(f"   - GET  /api/listen/status - Get listening status")
     
     app.run(host=FLASK_HOST, port=FLASK_PORT)

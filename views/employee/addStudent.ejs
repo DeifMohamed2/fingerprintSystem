@@ -230,6 +230,92 @@
     background-color: #f8d7da;
     color: #721c24;
   }
+
+  /* Device Users Management Styles */
+  .device-users-section {
+    margin-top: 2rem;
+  }
+
+  .device-users-table .badge {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.75rem;
+  }
+
+  .device-users-table .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  .device-users-loading {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+  }
+
+  @keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  .device-users-empty {
+    padding: 3rem 1rem;
+    text-align: center;
+    color: #6c757d;
+  }
+
+  .device-users-empty i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  /* Scrollable Tables */
+  .table-container {
+    max-height: 500px;
+    overflow-y: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+  }
+
+  .table-container::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .table-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+
+  .table-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+  }
+
+  .table-container::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+  }
+
+  /* Fixed table headers */
+  .table-container .table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: #000;
+    color: #fff;
+  }
+
+  /* Responsive table heights */
+  @media (max-width: 768px) {
+    .table-container {
+      max-height: 400px;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .table-container {
+      max-height: 300px;
+    }
+  }
 </style>
 
 <body class="g-sidenav-show rtl bg-gray-100">
@@ -273,6 +359,44 @@
                 <div class="row mb-4">
                   <div class="col-md-12">
                     <label class="form-label fw-bold">اختيار جهاز البصمة</label>
+                    
+                    <!-- Device Status Alert -->
+                    <% if (deviceInfo && deviceInfo.serviceError) { %>
+                      <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
+                        <i class="material-symbols-rounded me-2">warning</i>
+                        <div>
+                          <strong>تحذير:</strong> 
+                          <% if (deviceInfo.serviceDown) { %>
+                            خدمة أجهزة البصمة غير متاحة. يرجى التأكد من تشغيل الخدمة.
+                          <% } else if (deviceInfo.timeout) { %>
+                            انتهت مهلة الاتصال بأجهزة البصمة. قد تكون الأجهزة مشغولة أو لا تستجيب.
+                          <% } else { %>
+                            <%= deviceInfo.errorMessage || 'خطأ في الاتصال بأجهزة البصمة' %>
+                          <% } %>
+                          <br>
+                          <small>يمكنك إضافة الطالب الآن وسيتم إضافته للجهاز عند توفر الخدمة.</small>
+                        </div>
+                      </div>
+                    <% } else if (deviceInfo && deviceInfo.availableCount === 0 && deviceInfo.totalDevices > 0) { %>
+                      <div class="alert alert-info d-flex align-items-center mb-3" role="alert">
+                        <i class="material-symbols-rounded me-2">info</i>
+                        <div>
+                          <strong>معلومة:</strong> 
+                          لا توجد أجهزة بصمة متاحة حالياً من أصل <%= deviceInfo.totalDevices %> جهاز.
+                          <br>
+                          <small>يمكنك إضافة الطالب الآن وسيتم إضافته للجهاز عند توفر الخدمة.</small>
+                        </div>
+                      </div>
+                    <% } else if (deviceInfo && deviceInfo.availableCount > 0) { %>
+                      <div class="alert alert-success d-flex align-items-center mb-3" role="alert">
+                        <i class="material-symbols-rounded me-2">check_circle</i>
+                        <div>
+                          <strong>متاح:</strong> 
+                          <%= deviceInfo.availableCount %> من أصل <%= deviceInfo.totalDevices %> جهاز بصمة متاح حالياً.
+                        </div>
+                      </div>
+                    <% } %>
+                    
                     <select class="form-select" name="deviceId" id="deviceId">
                       <option value="">اختر جهاز البصمة (اختياري)</option>
                       <% if (availableDevices && availableDevices.length > 0) { %>
@@ -280,9 +404,20 @@
                           <option value="<%= String(device.id) %>" 
                                   data-device-ip="<%= device.ip %>" 
                                   data-device-port="<%= device.port %>"
+                                  data-device-status="<%= device.status %>"
                                   <%= device.enabled ? '' : 'disabled' %>>
                             <%= device.name %> (<%= device.ip %>:<%= device.port %>) 
-                            <%= device.enabled ? '- متاح' : '- غير متاح' %>
+                            <% if (device.status === 'listening') { %>
+                              - متاح ومستمع
+                            <% } else if (device.status === 'online') { %>
+                              - متاح
+                            <% } else if (device.status === 'offline') { %>
+                              - غير متصل
+                            <% } else if (device.status === 'error') { %>
+                              - خطأ في الاتصال
+                            <% } else { %>
+                              - <%= device.enabled ? 'متاح' : 'غير متاح' %>
+                            <% } %>
                           </option>
                         <% }) %>
                       <% } else { %>
@@ -291,6 +426,10 @@
                     </select>
                     <small class="form-text text-muted">
                       اختياري: اختر جهاز البصمة لإضافة الطالب إليه. إذا لم تختر جهازاً، سيتم استخدام الجهاز الافتراضي.
+                      <br>
+                      <button type="button" class="btn btn-sm btn-outline-primary mt-1" onclick="refreshDeviceStatus()">
+                        <i class="material-symbols-rounded me-1">refresh</i>تحديث حالة الأجهزة
+                      </button>
                     </small>
                   </div>
                 </div>
@@ -363,7 +502,7 @@
               </div>
             </div>
             <div class="card-body p-0">
-              <div class="table-responsive">
+              <div class="table-container">
                 <table class="table table-hover mb-0" id="studentsTable">
                   <thead>
                     <tr>
@@ -382,6 +521,80 @@
                     <!-- Students will be loaded here -->
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Device Users Management Section -->
+      <div class="row mt-4 device-users-section">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header">
+              <div class="row align-items-center">
+                <div class="col-md-6">
+                  <h5 class="mb-0">
+                    <i class="material-symbols-rounded me-2">fingerprint</i>
+                    إدارة مستخدمي أجهزة البصمة
+                  </h5>
+                </div>
+                <div class="col-md-6">
+                  <div class="row">
+                    <div class="col-md-4">
+                      <input type="text" class="form-control form-control-sm" id="searchDeviceUsers" placeholder="البحث بالكود أو الاسم...">
+                    </div>
+                    <div class="col-md-4">
+                      <select class="form-select form-select-sm" id="deviceUsersFilter">
+                        <option value="">جميع الأجهزة</option>
+                        <% if (availableDevices && availableDevices.length > 0) { %>
+                          <% availableDevices.forEach(device => { %>
+                            <option value="<%= String(device.id) %>"><%= device.name %> (<%= device.ip %>)</option>
+                          <% }) %>
+                        <% } %>
+                      </select>
+                    </div>
+                    <div class="col-md-4">
+                      <button type="button" class="btn btn-sm btn-primary" onclick="loadDeviceUsers()">
+                        <i class="material-symbols-rounded me-1">refresh</i>تحديث المستخدمين
+                      </button>
+                      <button type="button" class="btn btn-sm btn-info ms-1" onclick="testListenerConnection()">
+                        <i class="material-symbols-rounded me-1">wifi</i>اختبار الاتصال
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-container">
+                <table class="table table-hover mb-0 device-users-table" id="deviceUsersTable">
+                  <thead>
+                    <tr>
+                      <th class="text-center">معرف المستخدم</th>
+                      <th class="text-center">اسم المستخدم</th>
+                      <th class="text-center">الجهاز</th>
+                      <th class="text-center">عنوان IP</th>
+                      <th class="text-center">الصلاحيات</th>
+                      <th class="text-center">الحالة</th>
+                      <th class="text-center">الإجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody id="deviceUsersTableBody">
+                    <!-- Device users will be loaded here -->
+                  </tbody>
+                </table>
+              </div>
+              <div id="deviceUsersLoading" class="text-center p-4 device-users-loading" style="display: none;">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">جاري التحميل...</span>
+                </div>
+                <p class="mt-2">جاري تحميل مستخدمي الأجهزة...</p>
+              </div>
+              <div id="deviceUsersEmpty" class="device-users-empty" style="display: none;">
+                <i class="material-symbols-rounded">fingerprint</i>
+                <p class="mt-2">لا توجد مستخدمين في الأجهزة</p>
+                <small class="text-muted">اضغط على "تحديث المستخدمين" لتحميل البيانات</small>
               </div>
             </div>
           </div>

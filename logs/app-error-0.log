@@ -1,0 +1,91 @@
+2025-10-07T05:37:07: ❌ Failed to fetch devices: connect ECONNREFUSED 127.0.0.1:5001
+2025-10-07T05:37:25: ❌ Failed to fetch devices: connect ECONNREFUSED 127.0.0.1:5001
+2025-10-07T05:48:42: Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client
+    at ServerResponse.setHeader (node:_http_outgoing:700:11)
+    at ServerResponse.header (C:\Program Files\fingerPrintSystem\node_modules\express\lib\response.js:672:10)
+    at ServerResponse.location (C:\Program Files\fingerPrintSystem\node_modules\express\lib\response.js:788:15)
+    at ServerResponse.redirect (C:\Program Files\fingerPrintSystem\node_modules\express\lib\response.js:817:18)
+    at authMiddleware (C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:35:23)
+    at Layer.handleRequest (C:\Program Files\fingerPrintSystem\node_modules\router\lib\layer.js:145:17)
+    at next (C:\Program Files\fingerPrintSystem\node_modules\router\lib\route.js:159:13)
+    at Route.dispatch (C:\Program Files\fingerPrintSystem\node_modules\router\lib\route.js:119:3)
+    at handle (C:\Program Files\fingerPrintSystem\node_modules\router\index.js:428:11)
+    at Layer.handleRequest (C:\Program Files\fingerPrintSystem\node_modules\router\lib\layer.js:145:17)
+    at C:\Program Files\fingerPrintSystem\node_modules\router\index.js:293:15
+    at processParams (C:\Program Files\fingerPrintSystem\node_modules\router\index.js:575:12)
+    at next (C:\Program Files\fingerPrintSystem\node_modules\router\index.js:289:5)
+    at Function.handle (C:\Program Files\fingerPrintSystem\node_modules\router\index.js:183:3)
+    at router (C:\Program Files\fingerPrintSystem\node_modules\router\index.js:59:12)
+    at Layer.handleRequest (C:\Program Files\fingerPrintSystem\node_modules\router\lib\layer.js:145:17)
+2025-10-07T06:01:08: ❌ Error adding user to device: Request failed with status code 500
+2025-10-07T06:06:53: Error adding user to device: Request failed with status code 500
+2025-10-07T06:18:05: Error deleting device user: TypeError: Cannot destructure property 'deviceId' of 'req.body' as it is undefined.
+    at deleteDeviceUser (C:\Program Files\fingerPrintSystem\controllers\employeeController.js:3199:13)
+    at Layer.handleRequest (C:\Program Files\fingerPrintSystem\node_modules\router\lib\layer.js:145:17)
+    at next (C:\Program Files\fingerPrintSystem\node_modules\router\lib\route.js:159:13)
+    at C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:28:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async authMiddleware (C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:23:7)
+2025-10-07T06:18:13: Error deleting device user: TypeError: Cannot destructure property 'deviceId' of 'req.body' as it is undefined.
+    at deleteDeviceUser (C:\Program Files\fingerPrintSystem\controllers\employeeController.js:3199:13)
+    at Layer.handleRequest (C:\Program Files\fingerPrintSystem\node_modules\router\lib\layer.js:145:17)
+    at next (C:\Program Files\fingerPrintSystem\node_modules\router\lib\route.js:159:13)
+    at C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:28:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async authMiddleware (C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:23:7)
+2025-10-07T06:18:18: Error deleting device user: TypeError: Cannot destructure property 'deviceId' of 'req.body' as it is undefined.
+    at deleteDeviceUser (C:\Program Files\fingerPrintSystem\controllers\employeeController.js:3199:13)
+    at Layer.handleRequest (C:\Program Files\fingerPrintSystem\node_modules\router\lib\layer.js:145:17)
+    at next (C:\Program Files\fingerPrintSystem\node_modules\router\lib\route.js:159:13)
+    at C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:28:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async authMiddleware (C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:23:7)
+2025-10-07T06:21:48: Error deleting device user: TypeError: Cannot destructure property 'deviceId' of 'req.body' as it is undefined.
+    at deleteDeviceUser (C:\Program Files\fingerPrintSystem\controllers\employeeController.js:3199:13)
+    at Layer.handleRequest (C:\Program Files\fingerPrintSystem\node_modules\router\lib\layer.js:145:17)
+    at next (C:\Program Files\fingerPrintSystem\node_modules\router\lib\route.js:159:13)
+    at C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:28:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async authMiddleware (C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:23:7)
+2025-10-07T06:21:55: Error deleting device user: TypeError: Cannot destructure property 'deviceId' of 'req.body' as it is undefined.
+    at deleteDeviceUser (C:\Program Files\fingerPrintSystem\controllers\employeeController.js:3199:13)
+    at Layer.handleRequest (C:\Program Files\fingerPrintSystem\node_modules\router\lib\layer.js:145:17)
+    at next (C:\Program Files\fingerPrintSystem\node_modules\router\lib\route.js:159:13)
+    at C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:28:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async authMiddleware (C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:23:7)
+2025-10-07T06:21:59: Error deleting device user: TypeError: Cannot destructure property 'deviceId' of 'req.body' as it is undefined.
+    at deleteDeviceUser (C:\Program Files\fingerPrintSystem\controllers\employeeController.js:3199:13)
+    at Layer.handleRequest (C:\Program Files\fingerPrintSystem\node_modules\router\lib\layer.js:145:17)
+    at next (C:\Program Files\fingerPrintSystem\node_modules\router\lib\route.js:159:13)
+    at C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:28:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async authMiddleware (C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:23:7)
+2025-10-07T06:24:24: [DELETE] Error deleting device user: TypeError: Cannot destructure property 'deviceId' of 'req.body' as it is undefined.
+    at deleteDeviceUser (C:\Program Files\fingerPrintSystem\controllers\employeeController.js:3199:13)
+    at Layer.handleRequest (C:\Program Files\fingerPrintSystem\node_modules\router\lib\layer.js:145:17)
+    at next (C:\Program Files\fingerPrintSystem\node_modules\router\lib\route.js:159:13)
+    at C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:28:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async authMiddleware (C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:23:7)
+2025-10-07T06:24:33: [DELETE] Error deleting device user: TypeError: Cannot destructure property 'deviceId' of 'req.body' as it is undefined.
+    at deleteDeviceUser (C:\Program Files\fingerPrintSystem\controllers\employeeController.js:3199:13)
+    at Layer.handleRequest (C:\Program Files\fingerPrintSystem\node_modules\router\lib\layer.js:145:17)
+    at next (C:\Program Files\fingerPrintSystem\node_modules\router\lib\route.js:159:13)
+    at C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:28:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async authMiddleware (C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:23:7)
+2025-10-07T06:27:41: [DELETE] Error deleting device user: TypeError: Cannot destructure property 'deviceId' of 'req.body' as it is undefined.
+    at deleteDeviceUser (C:\Program Files\fingerPrintSystem\controllers\employeeController.js:3199:13)
+    at Layer.handleRequest (C:\Program Files\fingerPrintSystem\node_modules\router\lib\layer.js:145:17)
+    at next (C:\Program Files\fingerPrintSystem\node_modules\router\lib\route.js:159:13)
+    at C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:28:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async authMiddleware (C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:23:7)
+2025-10-07T06:27:56: [DELETE] Error deleting device user: TypeError: Cannot destructure property 'deviceId' of 'req.body' as it is undefined.
+    at deleteDeviceUser (C:\Program Files\fingerPrintSystem\controllers\employeeController.js:3199:13)
+    at Layer.handleRequest (C:\Program Files\fingerPrintSystem\node_modules\router\lib\layer.js:145:17)
+    at next (C:\Program Files\fingerPrintSystem\node_modules\router\lib\route.js:159:13)
+    at C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:28:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async authMiddleware (C:\Program Files\fingerPrintSystem\routes\employeeRoute.js:23:7)
