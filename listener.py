@@ -110,6 +110,42 @@ def connect_once(device_ip=None, device_port=None):
     return zk.connect()
 
 
+def validate_device_connectivity(device_ip, device_port, timeout=3):
+    """Validate if a device is reachable on the network"""
+    try:
+        # First try a simple TCP connection test
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        result = sock.connect_ex((device_ip, device_port))
+        sock.close()
+        return result == 0
+    except Exception:
+        return False
+
+
+def connect_with_retry(device_ip, device_port, max_retries=3, retry_delay=5):
+    """Connect to device with retry mechanism"""
+    for attempt in range(max_retries):
+        try:
+            if not validate_device_connectivity(device_ip, device_port):
+                if attempt < max_retries - 1:
+                    print(f"⚠️ Device {device_ip}:{device_port} not reachable, retrying in {retry_delay}s... (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(retry_delay)
+                    continue
+                else:
+                    raise Exception(f"Device {device_ip}:{device_port} not reachable after {max_retries} attempts")
+            
+            zk = ZK(device_ip, port=device_port, timeout=5)
+            conn = zk.connect()
+            return conn
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"⚠️ Connection attempt {attempt + 1}/{max_retries} failed: {e}, retrying in {retry_delay}s...")
+                time.sleep(retry_delay)
+            else:
+                raise e
+
+
 def connect_to_device(device_id):
     """Connect to a specific device by ID"""
     if device_id not in devices:
@@ -118,6 +154,11 @@ def connect_to_device(device_id):
     device = devices[device_id]
     if not device["enabled"]:
         raise Exception(f"Device {device_id} is disabled")
+    
+    # Validate connectivity before attempting ZK connection
+    if not validate_device_connectivity(device["ip"], device["port"]):
+        device["status"] = "offline"
+        raise Exception(f"Device {device['name']} ({device['ip']}:{device['port']}) is not reachable on the network")
     
     zk = ZK(device["ip"], port=device["port"], timeout=5)
     conn = zk.connect()
@@ -172,19 +213,27 @@ def listen_loop_for_device(device_id):
         print(f"❌ Device {device_id} not found")
         return
     
-    try:
-        print(f"👉 Starting attendance listener for {device['name']} ({device['ip']})...")
-        zk = ZK(device["ip"], port=device["port"], timeout=5)
-        conn = zk.connect()
-        print(f"✅ Connected to {device['name']} for listening")
-        
-        device["status"] = "listening"
+    # Initialize device entry in listen_status if it doesn't exist
+    if device_id not in listen_status["devices"]:
         listen_status["devices"][device_id] = {
-            "running": True,
+            "running": False,
             "last_error": None,
             "name": device["name"],
             "ip": device["ip"]
         }
+    
+    try:
+        print(f"👉 Starting attendance listener for {device['name']} ({device['ip']})...")
+        
+        # Connect with retry mechanism
+        conn = connect_with_retry(device["ip"], device["port"])
+        print(f"✅ Connected to {device['name']} for listening")
+        
+        device["status"] = "listening"
+        listen_status["devices"][device_id].update({
+            "running": True,
+            "last_error": None
+        })
 
         while not listen_stop_events.get(device_id, threading.Event()).is_set():
             try:
@@ -198,11 +247,31 @@ def listen_loop_for_device(device_id):
                     # Clear attendance logs to prevent duplicates
                     conn.clear_attendance()
             except Exception as inner_error:
-                listen_status["devices"][device_id]["last_error"] = str(inner_error)
+                if device_id in listen_status["devices"]:
+                    listen_status["devices"][device_id]["last_error"] = str(inner_error)
                 print(f"❌ [{device['name']}] Listener inner error:", inner_error)
+                
+                # If connection is lost, try to reconnect
+                if "can't reach device" in str(inner_error).lower() or "network" in str(inner_error).lower():
+                    print(f"🔄 [{device['name']}] Attempting to reconnect...")
+                    try:
+                        if conn:
+                            conn.disconnect()
+                        conn = connect_with_retry(device["ip"], device["port"])
+                        print(f"✅ [{device['name']}] Reconnected successfully")
+                        if device_id in listen_status["devices"]:
+                            listen_status["devices"][device_id]["last_error"] = None
+                    except Exception as reconnect_error:
+                        print(f"❌ [{device['name']}] Reconnection failed:", reconnect_error)
+                        if device_id in listen_status["devices"]:
+                            listen_status["devices"][device_id]["last_error"] = f"Reconnection failed: {str(reconnect_error)}"
+                        # Wait longer before next attempt
+                        time.sleep(10)
+                        continue
             time.sleep(2)
     except Exception as error:
-        listen_status["devices"][device_id]["last_error"] = str(error)
+        if device_id in listen_status["devices"]:
+            listen_status["devices"][device_id]["last_error"] = str(error)
         device["status"] = "error"
         print(f"❌ [{device['name']}] Listener error:", error)
     finally:
@@ -225,6 +294,15 @@ def start_all_listeners():
     
     for device_id, device in devices.items():
         if device["enabled"]:
+            # Initialize device entry in listen_status
+            if device_id not in listen_status["devices"]:
+                listen_status["devices"][device_id] = {
+                    "running": False,
+                    "last_error": None,
+                    "name": device["name"],
+                    "ip": device["ip"]
+                }
+            
             if device_id not in listen_stop_events:
                 listen_stop_events[device_id] = threading.Event()
             listen_stop_events[device_id].clear()
