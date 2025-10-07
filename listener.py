@@ -21,8 +21,8 @@ if sys.platform == "win32":
 
 # Default devices configuration
 DEFAULT_DEVICES = [
-    {"ip": "192.168.1.201", "port": 4370, "name": "Device 1", "enabled": True},
-    {"ip": "192.168.1.202", "port": 4370, "name": "Device 2", "enabled": True}
+    {"ip": "192.168.1.201", "port": 4370, "name": "ولاد", "enabled": True},
+    {"ip": "192.168.1.202", "port": 4370, "name": "بنات", "enabled": True}
 ]
 
 NODE_API = "http://localhost:8721/api/attendance"
@@ -76,7 +76,7 @@ def safe_print(*args, **kwargs):
 
 # Function to clean user input data
 def clean_user_input(text):
-    """Clean user input to prevent Unicode encoding issues"""
+    """Clean user input to prevent Unicode encoding issues while preserving Unicode characters"""
     if not text:
         return ""
     
@@ -84,13 +84,23 @@ def clean_user_input(text):
         # Convert to string if not already
         text = str(text)
         
-        # Replace problematic Unicode characters with safe alternatives
-        cleaned = text.encode('ascii', 'replace').decode('ascii')
+        # Keep Unicode characters (like Arabic) but remove control characters
+        # Only remove characters that are truly problematic (control chars, null bytes, etc.)
+        cleaned = ''.join(char for char in text if ord(char) >= 32 or char in '\n\r\t')
         
-        # Remove any remaining problematic characters (keep only ASCII)
-        cleaned = ''.join(char for char in cleaned if ord(char) < 128)
+        # Trim to reasonable length and strip whitespace
+        cleaned = cleaned.strip()
         
-        return cleaned.strip()
+        # For device compatibility: Check if the text contains non-Latin characters
+        # Many ZK devices have issues with non-Latin characters
+        has_non_latin = any(ord(char) > 127 for char in cleaned)
+        
+        if has_non_latin:
+            safe_print(f"⚠️  Name contains non-Latin characters: '{cleaned}'")
+            # The text will be sent as-is (UTF-8) and let the device handle it
+            # The device should support UTF-8, but display may vary
+            
+        return cleaned
     except Exception as e:
         safe_print(f"Error cleaning user input: {e}")
         return ""
@@ -245,6 +255,23 @@ def pick_next_uid(existing_users):
 
 def try_set_user_variants(conn, uid, user_id, name, privilege, password, enabled):
     errors = []
+    
+    # Ensure name is properly encoded as UTF-8 string
+    # The python-zk library should handle UTF-8 strings correctly
+    if name:
+        try:
+            # Ensure it's a proper UTF-8 string
+            if isinstance(name, bytes):
+                name = name.decode('utf-8')
+            else:
+                # Force UTF-8 encoding cycle to ensure proper format
+                name = str(name)
+        except Exception as enc_err:
+            safe_print(f"Name encoding warning: {enc_err}")
+            name = str(name)
+    
+    safe_print(f"Setting user with name: '{name}' (type: {type(name)}, length: {len(name) if name else 0})")
+    
     # Most common signature for python-zk: set_user(uid=None, name='', privilege=const.USER_DEFAULT, password='', group_id='', user_id=None)
     variants = [
         {"uid": uid, "name": name, "privilege": privilege, "password": password or "", "group_id": "", "user_id": user_id},
@@ -253,16 +280,18 @@ def try_set_user_variants(conn, uid, user_id, name, privilege, password, enabled
         # Some forks accept enabled
         {"uid": uid, "name": name, "privilege": privilege, "password": password or "", "group_id": "", "user_id": user_id, "enabled": bool(enabled)},
     ]
-    for kwargs in variants:
+    for i, kwargs in enumerate(variants):
         try:
+            safe_print(f"Trying variant {i+1}: {list(kwargs.keys())}")
             conn.set_user(**kwargs)
+            safe_print(f"Successfully set user with variant {i+1}")
             return True, None
         except TypeError as te:
             # Signature mismatch, try next
-            errors.append(str(te))
+            errors.append(f"Variant {i+1}: {str(te)}")
             continue
         except Exception as e:
-            errors.append(str(e))
+            errors.append(f"Variant {i+1}: {str(e)}")
             continue
     return False, "; ".join(errors)
 
@@ -920,7 +949,7 @@ def api_set_user():
         # Check if specific device is requested
         device_id = body.get("deviceId")
         safe_print(f"Received device_id: {device_id} (type: {type(device_id)})")
-        safe_print(f" Available devices: {list(devices.keys())}")
+        safe_print(f"Available devices: {list(devices.keys())}")
         
         if device_id and str(device_id).strip() != '' and str(device_id) in devices:
             # Add user to specific device
@@ -928,15 +957,23 @@ def api_set_user():
             safe_print(f"Adding user to specific device: {device['name']} ({device['ip']}) - Device ID: {device_id}")
         else:
             # Use default connection (first available device)
-            safe_print(f" Using default device (first enabled). Reason: device_id='{device_id}', available={list(devices.keys())}")
+            safe_print(f"Using default device (first enabled). Reason: device_id='{device_id}', available={list(devices.keys())}")
             conn = connect_once()
             device = None
         
         desired_user_id = clean_user_input(body.get("userId")) if body.get("userId") is not None else ""
-        desired_name = clean_user_input(body.get("name", ""))
+        
+        # Handle name with special care for Unicode
+        raw_name = body.get("name", "")
+        safe_print(f"Raw name received: '{raw_name}' (type: {type(raw_name)}, bytes: {raw_name.encode('utf-8') if raw_name else 'empty'})")
+        
+        desired_name = clean_user_input(raw_name)
+        safe_print(f"Cleaned name: '{desired_name}' (type: {type(desired_name)}, length: {len(desired_name)})")
         
         if len(desired_name) > 24:
             desired_name = desired_name[:24]
+            safe_print(f"Name truncated to 24 chars: '{desired_name}'")
+            
         desired_priv = const.USER_DEFAULT if body.get("privilege") is None else int(body.get("privilege"))
         desired_pass = clean_user_input(body.get("password")) if body.get("password") else None
         desired_enabled = bool(body.get("enabled", True))
