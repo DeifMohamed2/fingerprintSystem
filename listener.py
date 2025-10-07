@@ -17,7 +17,7 @@ DEFAULT_DEVICES = [
     {"ip": "192.168.1.202", "port": 4370, "name": "Device 2", "enabled": True}
 ]
 
-NODE_API = "http://localhost:8600/api/attendance"
+NODE_API = "http://82.25.101.207:8721/api/attendance"
 FLASK_HOST = "0.0.0.0"
 FLASK_PORT = 5001
 AUTO_LISTEN = os.environ.get("AUTO_LISTEN", "1") not in ("0", "false", "False")
