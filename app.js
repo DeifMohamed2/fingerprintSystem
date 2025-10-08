@@ -29,8 +29,8 @@ app.use(express.json());
 // let io
 // const dbURI = 'mongodb://localhost:27017/ElkablyCenter';
 
-
-const dbURI ='mongodb+srv://deif:1qaz2wsx@3devway.aa4i6ga.mongodb.net/fingerprintSystem?retryWrites=true&w=majority&appName=Cluster0';
+const dbURI =
+  'mongodb+srv://deif:1qaz2wsx@3devway.aa4i6ga.mongodb.net/fingerprintSystem?retryWrites=true&w=majority&appName=Cluster0';
 mongoose
   .connect(dbURI)
   .then((result) => {
@@ -38,7 +38,7 @@ mongoose
     console.log('connected to db and listening on port 8721');
     // Schedule monthly job: 1st day of month at 00:10 AM
     try {
-      schedule.scheduleJob('10 0 1 * *', async function() {
+      schedule.scheduleJob('10 0 1 * *', async function () {
         console.log('[Scheduler] Starting monthly payments reset...');
         try {
           await resetMonthlyPayments();
@@ -47,7 +47,9 @@ mongoose
           console.error('[Scheduler] Monthly payments reset failed', e);
         }
       });
-      console.log('[Scheduler] Monthly reset job scheduled: 00:10 on the 1st each month');
+      console.log(
+        '[Scheduler] Monthly reset job scheduled: 00:10 on the 1st each month'
+      );
     } catch (e) {
       console.error('[Scheduler] Failed to schedule monthly job', e);
     }
@@ -96,14 +98,16 @@ app.post('/api/attendance', (req, res) => {
     const payload = req.body || {};
     // Expected payload: { userId: string, time: string, deviceIp: string }
     console.log('📡 Fingerprint scan received from listener:', payload);
-    
+
     io.emit('attendance', payload);
     console.log('✅ Broadcast attendance event to all connected clients');
-    
+
     res.json({ ok: true });
   } catch (error) {
     console.error('❌ Error broadcasting attendance:', error);
-    res.status(500).json({ ok: false, error: error?.message || 'unknown error' });
+    res
+      .status(500)
+      .json({ ok: false, error: error?.message || 'unknown error' });
   }
 });
 
