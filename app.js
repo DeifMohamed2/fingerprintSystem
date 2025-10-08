@@ -94,10 +94,15 @@ app.use('/employee', employeeRoute);
 app.post('/api/attendance', (req, res) => {
   try {
     const payload = req.body || {};
-    // Expected payload: { userId: string, time: string }
+    // Expected payload: { userId: string, time: string, deviceIp: string }
+    console.log('📡 Fingerprint scan received from listener:', payload);
+    
     io.emit('attendance', payload);
+    console.log('✅ Broadcast attendance event to all connected clients');
+    
     res.json({ ok: true });
   } catch (error) {
+    console.error('❌ Error broadcasting attendance:', error);
     res.status(500).json({ ok: false, error: error?.message || 'unknown error' });
   }
 });

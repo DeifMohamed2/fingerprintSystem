@@ -110,6 +110,8 @@ let temp3Student = 0;
 async function attendStudent(event) {
     event.preventDefault();
     
+    console.log('🎯 attendStudent function called');
+    
     // Show spinner and hide messages
     spinner.classList.remove('d-none');
     
@@ -868,17 +870,28 @@ document.addEventListener('DOMContentLoaded', function() {
       console.log('Socket connected for fingerprint events');
     });
     socket.on('attendance', async (event) => {
-      // event: { userId: string, time: string }
+      // event: { userId: string, time: string, deviceIp: string }
       try {
+        console.log('📍 Fingerprint scan received:', event);
+        
         if (!groupSelection.value) {
           // Require group selection
+          console.warn('⚠️ No group selected, ignoring fingerprint scan');
           return;
         }
-        // Auto-fill the search input with the scanned userId and submit
+        
+        // Auto-fill the search input with the scanned userId
         searchStudent.value = event?.userId || '';
-        // Submit using the same logic as manual add
-        const submitEvent = new Event('submit');
-        attendStudent(submitEvent);
+        console.log('✅ Auto-filled student code:', searchStudent.value);
+        
+        // Create a proper submit event that supports preventDefault
+        const submitEvent = new Event('submit', { 
+          bubbles: true, 
+          cancelable: true 
+        });
+        
+        // Dispatch the event on the form to trigger the submit handler
+        attendStudentForm.dispatchEvent(submitEvent);
       } catch (err) {
         console.error('Error handling fingerprint attendance:', err);
       }
