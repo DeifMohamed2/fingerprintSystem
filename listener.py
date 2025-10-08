@@ -21,7 +21,7 @@ if sys.platform == "win32":
 
 # Default devices configuration
 DEFAULT_DEVICES = [
-    {"ip": "192.168.1.201", "port": 4370, "name": "ولاد", "enabled": True},
+    # {"ip": "192.168.1.201", "port": 4370, "name": "ولاد", "enabled": True},
     {"ip": "192.168.1.202", "port": 4370, "name": "بنات", "enabled": True}
 ]
 
